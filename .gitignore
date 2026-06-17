@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project runtime
+data/generated/
+data/db/
+*.sqlite
+*.sqlite3
+
+# OpenCode (AI tooling - not project code)
+.opencode/
+
+# User reference docs (not codebase)
+full_plan.md
+
+# Node (if ever added)
+node_modules/
