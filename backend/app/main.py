@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.app.config import settings
 from backend.app.routes.blueprints import router as blueprint_router
 from backend.app.storage.db import init_db
+from backend.app.storage.qdrant import QdrantManager
 
 HERE = Path(__file__).resolve().parent
 
@@ -15,7 +16,12 @@ HERE = Path(__file__).resolve().parent
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+
+    qdrant = QdrantManager()
+    await qdrant.init_collections()
+    app.state.qdrant = qdrant
     yield
+    await qdrant.close()
 
 
 app = FastAPI(lifespan=lifespan, title="EST Synthesizer")

@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION_LONG: str = "long_passages"
     QDRANT_COLLECTION_SHORT: str = "short_passages"
 
+    EMBEDDING_MODEL: str = "mistral/mistral-embed"
+    EMBEDDING_VECTOR_SIZE: int = 1024
+
     # ── paths ───────────────────────────────────────
     SQLITE_PATH: str = "data/db/est.db"
     GENERATED_PDF_PATH: str = "data/generated/"
