@@ -65,11 +65,13 @@ async def create_blueprint(
     blueprint_json: dict,
     description: str = "",
     *,
+    bp_id: str | None = None,
     is_builtin: bool = False,
 ) -> dict:
     """Insert a new blueprint and return it."""
     now = datetime.now(timezone.utc).isoformat()
-    bp_id = name.lower().replace(" ", "_").replace("-", "_")
+    if bp_id is None:
+        bp_id = name.lower().replace(" ", "_").replace("-", "_")
     async with get_connection() as db:
         await db.execute(
             """
@@ -165,6 +167,7 @@ async def seed_builtin_blueprints() -> None:
             name=bp.name,
             blueprint_json=bp.model_dump(mode="json"),
             description=bp.name.replace("_", " ").title(),
+            bp_id=bp.id,
             is_builtin=True,
         )
         logger.info("Seeded built-in blueprint: %s", bp.id)
