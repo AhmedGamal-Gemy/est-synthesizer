@@ -6,6 +6,7 @@ from .enums import (
     Difficulty,
     DistractorRole,
     JobStatus,
+    ModuleType,
     PassageCategory,
     PassageType,
     QuestionFlag,
@@ -15,7 +16,7 @@ from .enums import (
 from .feedback import QuestionFeedback
 from .job import GenerationJob
 from .llm import LLMConfig, LiteLLMRequest
-from .passage import Passage
+from .passage import Figure, Passage
 from .question import (
     AnswerChoice,
     GeneratedPassageBlock,
@@ -35,6 +36,7 @@ __all__ = [
     "AnswerChoice",
     "Difficulty",
     "DistractorRole",
+    "Figure",
     "GeneratedModule",
     "GeneratedPassageBlock",
     "GeneratedQuestion",
@@ -47,6 +49,7 @@ __all__ = [
     "LLMQuestionOutput",
     "ModuleConfig",
     "ModuleSlot",
+    "ModuleType",
     "Passage",
     "PassageCategory",
     "PassageType",

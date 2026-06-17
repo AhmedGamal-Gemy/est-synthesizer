@@ -12,6 +12,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from .enums import PassageCategory, PassageType
 
 
+class Figure(BaseModel):
+    """An optional figure accompanying a passage."""
+
+    model_config = ConfigDict(strict=True)
+
+    caption: str = Field(..., description="Figure caption/title")
+    description: str = Field(..., description="Text description of the figure content")
+    data: Optional[str] = Field(default=None, description="Optional figure data (e.g. base64 image or URL)")
+
+
 class Passage(BaseModel):
     """A scraped or otherwise acquired source passage."""
 
@@ -29,6 +39,9 @@ class Passage(BaseModel):
     reading_level: float = Field(
         ..., description="Flesch-Kincaid grade-level score"
     )
+    figure: Optional[Figure] = Field(
+        default=None, description="Optional figure accompanying the passage"
+    )
     embedding: Optional[List[float]] = Field(
         default=None, description="Vector embedding for Qdrant storage"
     )
@@ -41,7 +54,8 @@ class Passage(BaseModel):
     )
 
     def __repr__(self) -> str:
+        figure_info = ", figure=True" if self.figure is not None else ""
         return (
             f"Passage(id={self.id!r}, passage_type={self.passage_type.value!r}, "
-            f"word_count={self.word_count})"
+            f"word_count={self.word_count}{figure_info})"
         )

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from backend.app.schemas.enums import PassageCategory, PassageType
-from backend.app.schemas.passage import Passage
+from backend.app.schemas.passage import Figure, Passage
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -151,3 +151,69 @@ def test_passage_extra_fields_ignored_with_strict():
     """strict=True enforces strict types but does NOT forbid extra fields."""
     p = Passage(**_valid_passage(extra_field="ignored"))
     assert p.id == "p-001"
+
+
+# ── Figure ────────────────────────────────────────────────────
+
+
+def test_figure_creation_with_required_fields():
+    f = Figure(caption="Chart 1", description="A bar chart showing results")
+    assert f.caption == "Chart 1"
+    assert f.description == "A bar chart showing results"
+    assert f.data is None
+
+
+def test_figure_creation_with_optional_data():
+    f = Figure(caption="Chart 1", description="A bar chart showing results", data="base64image")
+    assert f.data == "base64image"
+
+
+def test_figure_missing_required_caption():
+    with pytest.raises(ValidationError):
+        Figure(description="A description")
+
+
+def test_figure_missing_required_description():
+    with pytest.raises(ValidationError):
+        Figure(caption="A caption")
+
+
+def test_figure_strict_mode():
+    """strict=True enforces strict types."""
+    f = Figure(caption="Chart 1", description="A bar chart", data="url")
+    assert f.caption == "Chart 1"
+
+
+# ── Passage — figure field ────────────────────────────────────
+
+
+def test_passage_figure_default_none():
+    p = Passage(**_valid_passage())
+    assert p.figure is None
+
+
+def test_passage_with_figure():
+    f = Figure(caption="Chart 1", description="A bar chart showing results")
+    p = Passage(**_valid_passage(figure=f))
+    assert p.figure is not None
+    assert p.figure.caption == "Chart 1"
+    assert p.figure.description == "A bar chart showing results"
+
+
+def test_passage_with_figure_and_data():
+    f = Figure(caption="Chart 1", description="A bar chart", data="base64image")
+    p = Passage(**_valid_passage(figure=f))
+    assert p.figure.data == "base64image"
+
+
+def test_passage_repr_without_figure():
+    p = Passage(**_valid_passage())
+    r = repr(p)
+    assert "figure" not in r
+
+
+def test_passage_repr_with_figure():
+    f = Figure(caption="Chart 1", description="A bar chart")
+    p = Passage(**_valid_passage(figure=f))
+    r = repr(p)
+    assert "figure=True" in r

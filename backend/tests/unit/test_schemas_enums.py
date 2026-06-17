@@ -7,6 +7,7 @@ from backend.app.schemas.enums import (
     DistractorRole,
     JobStatus,
     LowerStrEnum,
+    ModuleType,
     PassageCategory,
     PassageType,
     QuestionFlag,
@@ -61,6 +62,28 @@ def test_passage_category_str_returns_class_dot_name():
 
 def test_passage_category_member_count():
     assert len(list(PassageCategory)) == 5
+
+
+# ── ModuleType ──────────────────────────────────────────────
+
+def test_module_type_member_names():
+    assert set(m.name for m in ModuleType) == {"WRITING", "READING_LONG", "READING_SHORT"}
+
+
+def test_module_type_auto_values_are_lowered_names():
+    values = [m.value for m in ModuleType]
+    expected = ["writing", "reading_long", "reading_short"]
+    assert values == expected
+
+
+def test_module_type_str_returns_class_dot_name():
+    assert str(ModuleType.WRITING) == "ModuleType.WRITING"
+    assert str(ModuleType.READING_LONG) == "ModuleType.READING_LONG"
+    assert str(ModuleType.READING_SHORT) == "ModuleType.READING_SHORT"
+
+
+def test_module_type_member_count():
+    assert len(list(ModuleType)) == 3
 
 
 # ── QuestionType ─────────────────────────────────────────────
@@ -223,7 +246,7 @@ def test_job_status_all_members():
 
 def test_all_enums_are_lower_str_enum():
     for enum_cls in [
-        PassageType, PassageCategory, QuestionType, SkillType,
+        PassageType, PassageCategory, ModuleType, QuestionType, SkillType,
         Difficulty, DistractorRole, QuestionFlag, JobStatus,
     ]:
         assert issubclass(enum_cls, LowerStrEnum)
