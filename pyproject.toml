@@ -19,7 +19,18 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.28",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore:cannot collect test class.*__init__:pytest.PytestCollectionWarning",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend"]
