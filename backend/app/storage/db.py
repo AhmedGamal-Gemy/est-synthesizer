@@ -10,6 +10,8 @@ from typing import AsyncGenerator
 
 import aiosqlite
 
+# BLUEPRINT_TABLE_SQL is inlined below to avoid circular imports
+
 logger = logging.getLogger(__name__)
 
 DB_PATH: str = "data/db/est.db"
@@ -79,7 +81,16 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status       ON generation_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_created      ON generation_jobs(created_at);
 CREATE INDEX IF NOT EXISTS idx_inventory_created ON test_inventory(created_at);
 CREATE INDEX IF NOT EXISTS idx_feedback_test     ON question_feedback(test_id);
-CREATE INDEX IF NOT EXISTS idx_feedback_created  ON question_feedback(created_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON question_feedback(created_at);
+CREATE TABLE IF NOT EXISTS blueprints (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    blueprint_json  TEXT NOT NULL,
+    is_builtin      INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
 """
 
 
@@ -89,6 +100,9 @@ async def init_db() -> None:
         async with get_connection() as db:
             await db.executescript(SCHEMA_SQL)
             await db.commit()
+        # lazy import avoids circular dep (blueprints → db → blueprints)
+        from backend.app.storage.blueprints import seed_builtin_blueprints  # fmt: skip
+        await seed_builtin_blueprints()
         logger.info("Database schema initialised.")
     except Exception:
         logger.exception("Failed to initialise database schema")

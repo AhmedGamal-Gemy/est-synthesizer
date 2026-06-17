@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EST Synthesizer — Blueprint Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f8f9fb;
+      --surface: #ffffff;
+      --border: #e2e5ea;
+      --text: #1a1d23;
+      --text-secondary: #5f6672;
+      --text-muted: #8b919d;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-light: #eff4ff;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --danger-light: #fef2f2;
+      --success: #16a34a;
+      --success-light: #f0fdf4;
+      --builtin-bg: #eff4ff;
+      --builtin-text: #2563eb;
+      --custom-bg: #f0fdf4;
+      --custom-text: #16a34a;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.08);
+      --radius: 8px;
+      --radius-lg: 12px;
+      --transition: 150ms ease;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── Header ─────────────────────────── */
+    .app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .app-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+
+    .app-title span {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 14px;
+      margin-left: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: var(--border);
+    }
+    .btn-ghost:hover {
+      background: var(--bg);
+      color: var(--text);
+      border-color: #cdd1d8;
+    }
+
+    .btn-danger-ghost {
+      background: transparent;
+      color: var(--danger);
+      border-color: transparent;
+    }
+    .btn-danger-ghost:hover {
+      background: var(--danger-light);
+      border-color: #fecaca;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 13px;
+      border-radius: 6px;
+    }
+
+    /* ── Main Content ──────────────────── */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .toolbar h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .toolbar-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Error Banner ──────────────────── */
+    .error-banner {
+      position: fixed;
+      top: 80px;
+      right: 24px;
+      background: var(--danger-light);
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: var(--shadow-md);
+      z-index: 100;
+      max-width: 420px;
+      opacity: 0;
+      transform: translateY(-8px);
+      pointer-events: none;
+      transition: opacity 200ms ease, transform 200ms ease;
+    }
+
+    .error-banner.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* ── Table Card ────────────────────── */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    thead {
+      background: #fafbfc;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: #fafbfc;
+    }
+
+    .col-name {
+      font-weight: 600;
+      color: var(--text);
+      min-width: 180px;
+    }
+
+    .col-desc {
+      color: var(--text-secondary);
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .col-questions {
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .col-type {
+      white-space: nowrap;
+    }
+
+    .col-actions {
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    .actions-group {
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    /* ── Badges ────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 999px;
+      letter-spacing: 0.01em;
+    }
+
+    .badge-builtin {
+      background: var(--builtin-bg);
+      color: var(--builtin-text);
+    }
+
+    .badge-custom {
+      background: var(--custom-bg);
+      color: var(--custom-text);
+    }
+
+    /* ── Empty State ───────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* ── Modal ─────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 17, 21, 0.5);
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 720px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(12px) scale(0.98);
+      transition: transform 180ms ease;
+    }
+
+    .modal-overlay.open .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h2 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      line-height: 1;
+      transition: all var(--transition);
+    }
+
+    .modal-close:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      background: #fafbfc;
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      letter-spacing: 0.01em;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 9px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    textarea.form-input {
+      resize: vertical;
+      min-height: 320px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      tab-size: 2;
+    }
+
+    .json-error {
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .json-error.visible {
+      display: block;
+    }
+
+    .readonly-notice {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: #f3f4f6;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Loading ───────────────────────── */
+    .loading-row td {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Responsive ────────────────────── */
+    @media (max-width: 768px) {
+      .app-header {
+        padding: 0 16px;
+        height: 56px;
+      }
+
+      .main {
+        padding: 20px 16px 48px;
+      }
+
+      .toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .table-card {
+        border-radius: var(--radius);
+      }
+
+      th, td {
+        padding: 10px 12px;
+      }
+
+      .col-desc {
+        display: none;
+      }
+
+      .modal {
+        max-width: 100%;
+        max-height: 95vh;
+        margin: 0 8px;
+      }
+
+      .modal-body {
+        padding: 16px;
+      }
+
+      textarea.form-input {
+        min-height: 240px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .col-questions {
+        display: none;
+      }
+
+      .btn span.label {
+        display: none;
+      }
+
+      .btn {
+        padding: 8px 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-title">
+      EST Synthesizer
+      <span>Blueprint Editor</span>
+    </div>
+    <button class="btn btn-primary" id="btn-new" title="Create new blueprint">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span class="label">New Blueprint</span>
+    </button>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="toolbar">
+      <div>
+        <h1>Test Blueprints</h1>
+        <p class="toolbar-meta" id="count-meta">Loading…</p>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th class="col-desc">Description</th>
+              <th class="col-questions">Questions</th>
+              <th class="col-type">Type</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="blueprint-tbody">
+            <tr class="loading-row">
+              <td colspan="5">
+                <span class="spinner"></span> Loading blueprints…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="empty-state" style="display:none;">
+        <div class="empty-state-icon">📋</div>
+        <p>No blueprints found. Create one to get started.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Error Banner -->
+  <div class="error-banner" id="error-banner" role="alert"></div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Edit Blueprint</h2>
+        <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="bp-name">Name</label>
+          <input class="form-input" type="text" id="bp-name" placeholder="Blueprint name">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bp-desc">Description</label>
+          <input class="form-input" type="text" id="bp-desc" placeholder="Optional description">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bp-json">Blueprint JSON</label>
+          <div id="readonly-notice" class="readonly-notice" style="display:none;">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5v3M6 8.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Built-in — read-only
+          </div>
+          <textarea class="form-input" id="bp-json" spellcheck="false" placeholder='{"modules": [...]}'></textarea>
+          <div class="json-error" id="json-error"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">Save Blueprint</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ── State ──────────────────────────
+      let API_BASE = '';          // set from /api/config on load
+      let blueprints = [];
+      let currentId = null;       // id of blueprint being edited (null = new)
+      let isBuiltin = false;      // whether current blueprint is built-in
+
+      // ── DOM refs ───────────────────────
+      const tbody          = document.getElementById('blueprint-tbody');
+      const emptyState     = document.getElementById('empty-state');
+      const countMeta      = document.getElementById('count-meta');
+      const errorBanner    = document.getElementById('error-banner');
+      const modalOverlay   = document.getElementById('modal-overlay');
+      const modalTitle     = document.getElementById('modal-title');
+      const modalClose     = document.getElementById('modal-close');
+      const modalCancel    = document.getElementById('modal-cancel');
+      const modalSave      = document.getElementById('modal-save');
+      const bpName         = document.getElementById('bp-name');
+      const bpDesc         = document.getElementById('bp-desc');
+      const bpJson         = document.getElementById('bp-json');
+      const jsonError      = document.getElementById('json-error');
+      const readonlyNotice = document.getElementById('readonly-notice');
+      const btnNew         = document.getElementById('btn-new');
+
+      let errorTimer = null;
+
+      // ── Skeleton template ──────────────
+      const SKELETON = {
+        id: '',
+        name: 'New Blueprint',
+        modules: [
+          { module_number: 1, module_type: 'writing',      slots: [], has_figure: false, wordy_answer_style: true  },
+          { module_number: 2, module_type: 'reading_long',  slots: [], has_figure: true,  wordy_answer_style: false },
+          { module_number: 3, module_type: 'reading_short', slots: [], has_figure: false, wordy_answer_style: false }
+        ],
+        total_questions: 0,
+        difficulty_distribution: { easy: 0.2, medium: 0.4, hard: 0.4 }
+      };
+
+      // ── Helpers ────────────────────────
+      function apiUrl(path) {
+        return API_BASE + '/api' + path;
+      }
+
+      function showError(msg) {
+        if (errorTimer) clearTimeout(errorTimer);
+        errorBanner.textContent = msg;
+        errorBanner.classList.add('visible');
+        errorTimer = setTimeout(() => {
+          errorBanner.classList.remove('visible');
+          errorTimer = null;
+        }, 4000);
+      }
+
+      function countQuestions(bp) {
+        if (!bp || !bp.modules) return 0;
+        return bp.modules.reduce((sum, m) => sum + (m.slots ? m.slots.length : 0), 0);
+      }
+
+      function esc(str) {
+        if (str == null) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // ── API calls ──────────────────────
+      async function apiFetch(path, opts = {}) {
+        const res = await fetch(apiUrl(path), {
+          headers: { 'Content-Type': 'application/json' },
+          ...opts
+        });
+        if (!res.ok) {
+          let detail = res.statusText;
+          try {
+            const body = await res.json();
+            detail = body.detail || JSON.stringify(body);
+          } catch (_) { /* ignore */ }
+          throw new Error(detail || `HTTP ${res.status}`);
+        }
+        if (res.status === 204) return null;
+        return res.json();
+      }
+
+      async function fetchBlueprints() {
+        blueprints = await apiFetch('/blueprints');
+        renderTable();
+      }
+
+      async function createBlueprint(data) {
+        await apiFetch('/blueprints', {
+          method: 'POST',
+          body: JSON.stringify(data)
+        });
+        await fetchBlueprints();
+      }
+
+      async function updateBlueprint(id, data) {
+        await apiFetch('/blueprints/' + encodeURIComponent(id), {
+          method: 'PUT',
+          body: JSON.stringify(data)
+        });
+        await fetchBlueprints();
+      }
+
+      async function duplicateBlueprint(id) {
+        await apiFetch('/blueprints/' + encodeURIComponent(id) + '/duplicate', {
+          method: 'POST'
+        });
+        await fetchBlueprints();
+      }
+
+      async function deleteBlueprint(id) {
+        await apiFetch('/blueprints/' + encodeURIComponent(id), {
+          method: 'DELETE'
+        });
+        await fetchBlueprints();
+      }
+
+      // ── Render ─────────────────────────
+      function renderTable() {
+        tbody.innerHTML = '';
+
+        if (blueprints.length === 0) {
+          emptyState.style.display = '';
+          countMeta.textContent = '0 blueprints';
+          return;
+        }
+
+        emptyState.style.display = 'none';
+        countMeta.textContent = blueprints.length + ' blueprint' + (blueprints.length !== 1 ? 's' : '');
+
+        blueprints.forEach(bp => {
+          const tr = document.createElement('tr');
+
+          const bpData = typeof bp.blueprint_json === 'string'
+            ? JSON.parse(bp.blueprint_json)
+            : bp.blueprint_json || {};
+          const qCount = countQuestions(bpData);
+
+          const badgeClass = bp.is_builtin ? 'badge-builtin' : 'badge-custom';
+          const badgeLabel = bp.is_builtin ? 'Built-in' : 'Custom';
+
+          const actions = document.createElement('div');
+          actions.className = 'actions-group';
+
+          // Edit
+          const editBtn = document.createElement('button');
+          editBtn.className = 'btn btn-ghost btn-sm';
+          editBtn.textContent = 'Edit';
+          editBtn.addEventListener('click', () => openEditModal(bp));
+          actions.appendChild(editBtn);
+
+          // Duplicate
+          const dupBtn = document.createElement('button');
+          dupBtn.className = 'btn btn-ghost btn-sm';
+          dupBtn.textContent = 'Duplicate';
+          dupBtn.addEventListener('click', async () => {
+            try {
+              await duplicateBlueprint(bp.id);
+            } catch (e) {
+              showError('Failed to duplicate: ' + e.message);
+            }
+          });
+          actions.appendChild(dupBtn);
+
+          // Delete (hidden for built-in)
+          if (!bp.is_builtin) {
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn btn-danger-ghost btn-sm';
+            delBtn.textContent = 'Delete';
+            delBtn.addEventListener('click', async () => {
+              if (confirm('Delete "' + (bp.name || bp.id) + '"? This cannot be undone.')) {
+                try {
+                  await deleteBlueprint(bp.id);
+                } catch (e) {
+                  showError('Failed to delete: ' + e.message);
+                }
+              }
+            });
+            actions.appendChild(delBtn);
+          }
+
+          tr.innerHTML = `
+            <td class="col-name">${esc(bp.name || bp.id)}</td>
+            <td class="col-desc" title="${esc(bp.description || '')}">${esc(bp.description || '—')}</td>
+            <td class="col-questions">${qCount}</td>
+            <td class="col-type"><span class="badge ${badgeClass}">${badgeLabel}</span></td>
+            <td class="col-actions"></td>
+          `;
+          tr.querySelector('.col-actions').appendChild(actions);
+          tbody.appendChild(tr);
+        });
+      }
+
+      // ── Modal ──────────────────────────
+      function openModal() {
+        modalOverlay.classList.add('open');
+        bpName.focus();
+      }
+
+      function closeModal() {
+        modalOverlay.classList.remove('open');
+        jsonError.classList.remove('visible');
+        jsonError.textContent = '';
+      }
+
+      function openNewModal() {
+        currentId = null;
+        isBuiltin = false;
+        modalTitle.textContent = 'New Blueprint';
+        bpName.value = SKELETON.name;
+        bpDesc.value = '';
+        bpJson.value = JSON.stringify(SKELETON, null, 2);
+        bpName.disabled = false;
+        bpDesc.disabled = false;
+        bpJson.disabled = false;
+        readonlyNotice.style.display = 'none';
+        modalSave.textContent = 'Create Blueprint';
+        jsonError.classList.remove('visible');
+        openModal();
+      }
+
+      function openEditModal(bp) {
+        currentId = bp.id;
+        isBuiltin = !!bp.is_builtin;
+        modalTitle.textContent = isBuiltin ? 'View Blueprint' : 'Edit Blueprint';
+        bpName.value = bp.name || '';
+        bpDesc.value = bp.description || '';
+
+        let bpData;
+        if (typeof bp.blueprint_json === 'string') {
+          bpData = JSON.parse(bp.blueprint_json);
+        } else {
+          bpData = bp.blueprint_json || {};
+        }
+        bpJson.value = JSON.stringify(bpData, null, 2);
+
+        if (isBuiltin) {
+          bpName.disabled = true;
+          bpDesc.disabled = true;
+          bpJson.disabled = true;
+          readonlyNotice.style.display = '';
+          modalSave.textContent = 'Built-in (read-only)';
+          modalSave.disabled = true;
+          modalSave.style.opacity = '0.5';
+          modalSave.style.pointerEvents = 'none';
+        } else {
+          bpName.disabled = false;
+          bpDesc.disabled = false;
+          bpJson.disabled = false;
+          readonlyNotice.style.display = 'none';
+          modalSave.textContent = 'Save Changes';
+          modalSave.disabled = false;
+          modalSave.style.opacity = '';
+          modalSave.style.pointerEvents = '';
+        }
+
+        jsonError.classList.remove('visible');
+        openModal();
+      }
+
+      function validateAndSave() {
+        jsonError.classList.remove('visible');
+        jsonError.textContent = '';
+
+        // Parse JSON
+        let bpData;
+        try {
+          bpData = JSON.parse(bpJson.value);
+        } catch (e) {
+          jsonError.textContent = 'Invalid JSON: ' + e.message;
+          jsonError.classList.add('visible');
+          bpJson.focus();
+          return;
+        }
+
+        const name = bpName.value.trim();
+        if (!name) {
+          bpName.focus();
+          bpName.style.borderColor = 'var(--danger)';
+          setTimeout(() => { bpName.style.borderColor = ''; }, 2000);
+          return;
+        }
+
+        const payload = {
+          name: name,
+          description: bpDesc.value.trim() || '',
+          blueprint_json: bpData
+        };
+
+        if (currentId) {
+          // Update
+          updateBlueprint(currentId, payload).catch(e => {
+            showError('Failed to save: ' + e.message);
+          });
+        } else {
+          // Create
+          createBlueprint(payload).catch(e => {
+            showError('Failed to create: ' + e.message);
+          });
+        }
+
+        closeModal();
+      }
+
+      // ── Event listeners ────────────────
+      btnNew.addEventListener('click', openNewModal);
+      modalClose.addEventListener('click', closeModal);
+      modalCancel.addEventListener('click', closeModal);
+      modalSave.addEventListener('click', validateAndSave);
+
+      modalOverlay.addEventListener('click', function (e) {
+        if (e.target === modalOverlay) closeModal();
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modalOverlay.classList.contains('open')) {
+          closeModal();
+        }
+        // Ctrl/Cmd+Enter to save in modal
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && modalOverlay.classList.contains('open')) {
+          e.preventDefault();
+          if (!modalSave.disabled) validateAndSave();
+        }
+      });
+
+      // ── Init ───────────────────────────
+      (async function init() {
+        // Fetch host/port from the API itself so the frontend
+        // uses the same origin even when port changes.
+        try {
+          const cfg = await fetch('/api/config').then(r => r.json());
+          API_BASE = cfg.api_base.replace(/\/+$/, '');
+        } catch { /* same-origin fallback, API_BASE stays '' */ }
+
+        fetchBlueprints().catch(e => {
+          showError('Failed to load blueprints: ' + e.message);
+          tbody.innerHTML = `
+            <tr class="loading-row">
+              <td colspan="5" style="color: var(--danger);">
+                Failed to load. Check that the API is running.
+              </td>
+            </tr>
+          `;
+        });
+      })();
+    })();
+  </script>
+</body>
+</html>
