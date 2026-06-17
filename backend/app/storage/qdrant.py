@@ -250,35 +250,3 @@ def _build_filter(filters: dict[str, Any]) -> Filter:
                 )
             )
     return Filter(must=conditions)
-
-
-# ── filter builder ────────────────────────────────────────
-
-
-def _build_filter(filters: dict[str, Any]) -> Filter:
-    """Convert a plain dict into a Qdrant ``Filter``.
-
-    Supported operators per field:
-    - Exact match: ``{"field": value}``
-    - Range: ``{"field": {"gte": …, "lte": …}}``
-    """
-    conditions: list[FieldCondition] = []
-    for field, value in filters.items():
-        if isinstance(value, dict):
-            conditions.append(
-                FieldCondition(
-                    key=field,
-                    range=Range(
-                        gte=value.get("gte"),
-                        lte=value.get("lte"),
-                    ),
-                )
-            )
-        else:
-            conditions.append(
-                FieldCondition(
-                    key=field,
-                    match=MatchValue(value=value),
-                )
-            )
-    return Filter(must=conditions)
