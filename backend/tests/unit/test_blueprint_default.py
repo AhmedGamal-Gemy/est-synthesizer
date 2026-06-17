@@ -12,7 +12,7 @@ from backend.app.blueprint.default import (
     MODULE_3_SLOTS,
     _make_blueprint,
 )
-from backend.app.schemas import Difficulty, ModuleConfig, SkillType, TestBlueprint
+from backend.app.schemas import Difficulty, ModuleConfig, ModuleType, SkillType, TestBlueprint
 
 
 # ── Blueprint top-level properties ────────────────────────────
@@ -106,16 +106,16 @@ class TestModuleFlags:
 
 
 class TestModuleTypeAndNumber:
-    """Module metadata: type strings and module_number values."""
+    """Module metadata: ModuleType enum values and module_number values."""
 
     def test_module1_type(self):
-        assert DEFAULT_BLUEPRINT.modules[0].module_type == "writing"
+        assert DEFAULT_BLUEPRINT.modules[0].module_type == ModuleType.WRITING
 
     def test_module2_type(self):
-        assert DEFAULT_BLUEPRINT.modules[1].module_type == "reading_long"
+        assert DEFAULT_BLUEPRINT.modules[1].module_type == ModuleType.READING_LONG
 
     def test_module3_type(self):
-        assert DEFAULT_BLUEPRINT.modules[2].module_type == "reading_short"
+        assert DEFAULT_BLUEPRINT.modules[2].module_type == ModuleType.READING_SHORT
 
     def test_module_numbers_are_1_2_3(self):
         nums = [m.module_number for m in DEFAULT_BLUEPRINT.modules]
