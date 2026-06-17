@@ -1,5 +1,7 @@
 """Unit tests for backend.app.generation.prompts — prompt templates for question generation."""
 
+import pytest
+
 from backend.app.generation.constants import (
     SYSTEM_PROMPT,
     WRITING_ADDON,
@@ -12,11 +14,12 @@ from backend.app.generation.prompts import (
 from backend.app.schemas.enums import (
     Difficulty,
     DistractorRole,
+    ModuleType,
     PassageCategory,
     PassageType,
     SkillType,
 )
-from backend.app.schemas.passage import Passage
+from backend.app.schemas.passage import Figure, Passage
 from backend.app.schemas.test import ModuleSlot
 
 
@@ -44,8 +47,18 @@ def _valid_slot(**overrides) -> ModuleSlot:
         "skill_type": SkillType.CONVENTIONS_OF_STANDARD_ENGLISH,
         "difficulty": Difficulty.MEDIUM,
         "question_count": 3,
+        "easy_count": 0,
+        "medium_count": 3,
+        "hard_count": 0,
     }
     base.update(overrides)
+    # Recompute difficulty counts when difficulty or question_count are overridden
+    d = base.get("difficulty", Difficulty.MEDIUM)
+    q = base.get("question_count", 3)
+    if "easy_count" not in overrides and "medium_count" not in overrides and "hard_count" not in overrides:
+        base["easy_count"] = q if d == Difficulty.EASY else 0
+        base["medium_count"] = q if d == Difficulty.MEDIUM else 0
+        base["hard_count"] = q if d == Difficulty.HARD else 0
     return ModuleSlot(**base)
 
 
@@ -202,7 +215,7 @@ def test_build_user_prompt_reading_short_no_writing_addon():
         passage=passage,
         few_shot_examples=[],
         slot_config=slot,
-        module_type="reading_short",
+        module_type=ModuleType.READING_SHORT,
     )
     assert WRITING_ADDON not in result
 
@@ -214,7 +227,7 @@ def test_build_user_prompt_reading_long_no_writing_addon():
         passage=passage,
         few_shot_examples=[],
         slot_config=slot,
-        module_type="reading_long",
+        module_type=ModuleType.READING_LONG,
     )
     assert WRITING_ADDON not in result
 
@@ -226,7 +239,7 @@ def test_build_user_prompt_writing_includes_writing_addon():
         passage=passage,
         few_shot_examples=[],
         slot_config=slot,
-        module_type="writing",
+        module_type=ModuleType.WRITING,
     )
     assert WRITING_ADDON in result
 
@@ -349,8 +362,33 @@ def test_build_user_prompt_current_state_contains_remaining_count():
     assert "Questions Remaining in This Slot: 3" in result
 
 
-def test_build_user_prompt_figure_section_appears_when_has_figure_true():
+def test_build_user_prompt_remaining_count_subtracts_already_generated():
     passage = _valid_passage()
+    slot = _valid_slot(question_count=5, difficulty=Difficulty.MEDIUM, medium_count=5)
+    result = build_user_prompt(
+        passage=passage,
+        few_shot_examples=[],
+        slot_config=slot,
+        questions_already_generated=3,
+    )
+    assert "Questions Remaining in This Slot: 2" in result
+
+
+def test_build_user_prompt_remaining_count_never_negative():
+    passage = _valid_passage()
+    slot = _valid_slot(question_count=3, difficulty=Difficulty.MEDIUM, medium_count=3)
+    result = build_user_prompt(
+        passage=passage,
+        few_shot_examples=[],
+        slot_config=slot,
+        questions_already_generated=10,
+    )
+    assert "Questions Remaining in This Slot: 0" in result
+
+
+def test_build_user_prompt_figure_section_appears_when_has_figure_true():
+    figure = Figure(caption="Population Chart", description="A bar chart showing population growth")
+    passage = _valid_passage(figure=figure)
     slot = _valid_slot(has_figure=True)
     result = build_user_prompt(
         passage=passage,
@@ -359,6 +397,9 @@ def test_build_user_prompt_figure_section_appears_when_has_figure_true():
     )
     assert "<FIGURE_DATA>" in result
     assert "</FIGURE_DATA>" in result
+    assert "Figure caption:" in result
+    assert "Population Chart" in result
+    assert "Figure description:" in result
 
 
 def test_build_user_prompt_figure_section_not_appearing_when_has_figure_false():
@@ -372,16 +413,29 @@ def test_build_user_prompt_figure_section_not_appearing_when_has_figure_false():
     assert "<FIGURE_DATA>" not in result
 
 
+def test_build_user_prompt_figure_section_not_shown_when_passage_has_no_figure():
+    """Even if slot says has_figure=True, no figure section if passage.figure is None."""
+    passage = _valid_passage()  # no figure
+    slot = _valid_slot(has_figure=True)
+    result = build_user_prompt(
+        passage=passage,
+        few_shot_examples=[],
+        slot_config=slot,
+    )
+    assert "<FIGURE_DATA>" not in result
+
+
 def test_build_user_prompt_figure_data_mentions_figure_content():
-    passage = _valid_passage()
-    slot = _valid_slot(has_figure=True, figure_data="A bar chart showing population growth")
+    figure = Figure(caption="Population Chart", description="A bar chart showing population growth", data="A bar chart showing population growth over 50 years")
+    passage = _valid_passage(figure=figure)
+    slot = _valid_slot(has_figure=True)
     result = build_user_prompt(
         passage=passage,
         few_shot_examples=[],
         slot_config=slot,
     )
     assert "Figure content:" in result
-    assert "A bar chart showing population growth" in result
+    assert "A bar chart showing population growth over 50 years" in result
 
 
 def test_build_user_prompt_different_already_generated_counts():

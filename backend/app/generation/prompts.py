@@ -9,13 +9,16 @@ are defined in backend.app.generation.constants.
 
 from __future__ import annotations
 
+import logging
 from typing import List, Optional, Union
 
 from backend.app.generation.constants import SYSTEM_PROMPT, WRITING_ADDON, SKILL_TYPE_DESCRIPTIONS
-from backend.app.schemas.enums import Difficulty, DistractorRole, SkillType
+from backend.app.schemas.enums import Difficulty, DistractorRole, ModuleType, SkillType
 from backend.app.schemas.passage import Passage
 from backend.app.schemas.question import LLMBatchOutput, LLMQuestionOutput
 from backend.app.schemas.test import ModuleSlot
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # build_system_prompt
@@ -28,6 +31,7 @@ def build_system_prompt() -> str:
     role, rules, style notes, and output format. Per-request specificity
     comes from the user prompt.
     """
+    logger.debug("Returning static system prompt")
     return SYSTEM_PROMPT
 
 # ---------------------------------------------------------------------------
@@ -38,7 +42,7 @@ def build_user_prompt(
     passage: Passage,
     few_shot_examples: List[dict],
     slot_config: ModuleSlot,
-    module_type: str = "reading_short",
+    module_type: ModuleType = ModuleType.READING_SHORT,
     questions_already_generated: int = 0,
 ) -> str:
     """Assemble the per-request user prompt from XML sections.
@@ -53,8 +57,16 @@ def build_user_prompt(
     slot_config : ModuleSlot
         The slot being processed — defines skill_type, difficulty,
         and question_count for this batch.
-    module_type : str
-        One of: "writing", "reading_long", "reading_short".
+
+    Note
+    ----
+    Each ModuleSlot holds exactly one SkillType; multi-skill coverage
+    at the module level comes from multiple slots per module, not from
+    mixing skills within a single slot. This keeps per-batch LLM
+    instructions unambiguous.
+
+    module_type : ModuleType
+        One of: WRITING, READING_LONG, READING_SHORT.
         Determines whether WRITING_ADDON is injected.
     questions_already_generated : int
         Number of questions already produced in prior slots for this
@@ -112,14 +124,14 @@ def build_user_prompt(
     task_block += f"Difficulty Level: {difficulty_value}\n"
     task_block += f"Number of Questions: {count}\n"
 
-    if module_type == "writing":
+    if module_type == ModuleType.WRITING:
         task_block += f"\n{WRITING_ADDON}\n"
 
     task_block += "</TASK>"
     sections.append(task_block)
 
     # ── 4. CURRENT_STATE ────────────────────────────────────────────────
-    remaining = count
+    remaining = max(0, count - questions_already_generated)
     state_block = "<CURRENT_STATE>\n"
     state_block += f"Slot Position: {slot_config.slot_number}\n"
     state_block += f"Questions Already Generated for This Passage: {questions_already_generated}\n"
@@ -128,12 +140,17 @@ def build_user_prompt(
     sections.append(state_block)
 
     # ── 5. FIGURE_DATA (conditional) ────────────────────────────────────
-    if slot_config.has_figure:
+    if slot_config.has_figure and passage.figure is not None:
         figure_block = "<FIGURE_DATA>\n"
         figure_block += "A figure accompanies this passage. Reference it when relevant.\n"
-        if slot_config.figure_data:
-            figure_block += f"Figure content: {slot_config.figure_data}\n"
+        figure_block += f"Figure caption: {passage.figure.caption}\n"
+        figure_block += f"Figure description: {passage.figure.description}\n"
+        if passage.figure.data:
+            figure_block += f"Figure content: {passage.figure.data}\n"
         figure_block += "</FIGURE_DATA>"
         sections.append(figure_block)
+        logger.debug("Including figure data: caption=%s", passage.figure.caption)
+
+    logger.debug("Built user prompt for skill=%s difficulty=%s count=%d remaining=%d", slot_config.skill_type.value, slot_config.difficulty.value, count, remaining)
 
     return "\n\n".join(sections)
