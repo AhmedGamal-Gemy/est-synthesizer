@@ -28,6 +28,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore:cannot collect test class.*__init__:pytest.PytestCollectionWarning",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend"]
