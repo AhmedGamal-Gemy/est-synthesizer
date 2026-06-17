@@ -20,7 +20,7 @@ stubs = {
         ("_call_with_retry", "(prompt) -> dict", "Calls Mistral API with retries.")
     ],
     "backend/app/generation/validator.py": [
-        ("validate_question", "(output: MistralQuestionOutput, passage_text: str) -> tuple[bool, list[str]]", "Validates LLM output.")
+        ("validate_question", "(output: LLMQuestionOutput, passage_text: str) -> tuple[bool, list[str]]", "Validates LLM output.")
     ],
     "backend/app/generation/loop.py": [
         ("run_generation_loop", "(blueprint, passages, few_shots, job_id) -> list[GeneratedQuestion]", "Runs generation loop.")
