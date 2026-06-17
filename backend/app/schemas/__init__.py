@@ -16,7 +16,13 @@ from .feedback import QuestionFeedback
 from .job import GenerationJob
 from .llm import LLMConfig, LiteLLMRequest
 from .passage import Passage
-from .question import AnswerChoice, GeneratedPassageBlock, GeneratedQuestion
+from .question import (
+    AnswerChoice,
+    GeneratedPassageBlock,
+    GeneratedQuestion,
+    LLMBatchOutput,
+    LLMQuestionOutput,
+)
 from .test import (
     GeneratedModule,
     GeneratedTest,
@@ -37,6 +43,8 @@ __all__ = [
     "JobStatus",
     "LLMConfig",
     "LiteLLMRequest",
+    "LLMBatchOutput",
+    "LLMQuestionOutput",
     "ModuleConfig",
     "ModuleSlot",
     "Passage",
