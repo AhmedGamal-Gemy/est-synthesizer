@@ -1,6 +1,6 @@
 from qdrant_client import QdrantClient
 from backend.app.config import settings
-from backend.app.schemas.models import Passage
+from backend.app.schemas import Passage
 
 class QdrantManager:
     def __init__(self):
