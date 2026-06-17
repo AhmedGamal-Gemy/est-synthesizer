@@ -3,7 +3,7 @@
 Provides an async ``QdrantManager`` that:
 - Creates / reuses ``long_passages`` and ``short_passages`` collections
 - Embeds passages via LiteLLM and upserts them
-- Searches by cosine similarity with optional payload filters
+- Searches with cosine similarity and optional MMR diversity
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    Mmr,
+    NearestQuery,
     PointStruct,
     Range,
     VectorParams,
@@ -38,6 +40,10 @@ COLLECTIONS = (COLLECTION_LONG, COLLECTION_SHORT)
 
 EMBEDDING_MODEL = getattr(settings, "EMBEDDING_MODEL", "mistral/mistral-embed")
 VECTOR_SIZE = getattr(settings, "EMBEDDING_VECTOR_SIZE", 1024)
+
+# MMR defaults (used when use_mmr=True but no explicit values given)
+MMR_DEFAULT_DIVERSITY = 0.5
+MMR_DEFAULT_CANDIDATES = 100
 
 # Payload fields indexed for filtering
 PAYLOAD_INDEXES = [
@@ -75,9 +81,12 @@ class QdrantManager:
                     distance=Distance.COSINE,
                 ),
             )
-            logger.info("Created collection '%s' (size=%d, distance=COSINE).", name, VECTOR_SIZE)
+            logger.info(
+                "Created collection '%s' (size=%d, distance=COSINE).",
+                name,
+                VECTOR_SIZE,
+            )
 
-            # Payload indexes for filtered search
             for field in PAYLOAD_INDEXES:
                 await self.client.create_payload_index(
                     collection_name=name,
@@ -104,7 +113,11 @@ class QdrantManager:
         The collection is chosen by ``passage.passage_type.value``
         (``"long"`` → ``long_passages``, ``"short"`` → ``short_passages``).
         """
-        collection = COLLECTION_LONG if passage.passage_type.value == "long" else COLLECTION_SHORT
+        collection = (
+            COLLECTION_LONG
+            if passage.passage_type.value == "long"
+            else COLLECTION_SHORT
+        )
         vector = await self._embed(passage.text)
 
         point = PointStruct(
@@ -119,7 +132,9 @@ class QdrantManager:
                 "word_count": passage.word_count,
                 "reading_level": passage.reading_level,
                 "last_used_at": (
-                    passage.last_used_at.isoformat() if passage.last_used_at else None
+                    passage.last_used_at.isoformat()
+                    if passage.last_used_at
+                    else None
                 ),
             },
         )
@@ -142,8 +157,13 @@ class QdrantManager:
         limit: int = 5,
         *,
         use_mmr: bool = False,
+        diversity: float | None = None,
+        candidates_limit: int | None = None,
     ) -> list[dict[str, Any]]:
         """Search *collection* by cosine similarity to *query_text*.
+
+        Uses Qdrant's ``query_points`` API which natively supports MMR
+        (requires Qdrant server >= 1.15.0).
 
         Parameters
         ----------
@@ -155,36 +175,81 @@ class QdrantManager:
             Optional payload filters, e.g. ``{"passage_category": "essay"}``
             or ``{"reading_level": {"gte": 8, "lte": 14}}``.
         limit:
-            Maximum number of results.
+            Maximum number of results to return.
         use_mmr:
-            Not yet supported — raises ``NotImplementedError``.
+            Enable diversity-aware re-ranking via MMR.
+        diversity:
+            MMR diversity (0.0 = pure relevance, 1.0 = max diversity).
+            Defaults to 0.5 when *use_mmr* is True.
+        candidates_limit:
+            Number of candidates to pre-select before MMR re-rank.
+            Defaults to 100 when *use_mmr* is True.
 
         Returns
         -------
         List of ``{id, score, payload}`` dicts.
         """
-        if use_mmr:
-            raise NotImplementedError("MMR search is post-MVP")
-
         query_vector = await self._embed(query_text)
-
         qdrant_filter = _build_filter(filters) if filters else None
 
-        hits = await self.client.search(
+        if use_mmr:
+            query = NearestQuery(
+                nearest=query_vector,
+                mmr=Mmr(
+                    diversity=diversity if diversity is not None else MMR_DEFAULT_DIVERSITY,
+                    candidates_limit=candidates_limit or MMR_DEFAULT_CANDIDATES,
+                ),
+            )
+        else:
+            query = NearestQuery(nearest=query_vector)
+
+        hits = await self.client.query_points(
             collection_name=collection,
-            query_vector=query_vector,
+            query=query,
             query_filter=qdrant_filter,
             limit=limit,
         )
 
         return [
             {
-                "id": hit.id,
-                "score": hit.score,
-                "payload": hit.payload,
+                "id": point.id,
+                "score": point.score,
+                "payload": point.payload,
             }
-            for hit in hits
+            for point in hits.points
         ]
+
+
+# ── filter builder ────────────────────────────────────────
+
+
+def _build_filter(filters: dict[str, Any]) -> Filter:
+    """Convert a plain dict into a Qdrant ``Filter``.
+
+    Supported operators per field:
+    - Exact match: ``{"field": value}``
+    - Range: ``{"field": {"gte": …, "lte": …}}``
+    """
+    conditions: list[FieldCondition] = []
+    for field, value in filters.items():
+        if isinstance(value, dict):
+            conditions.append(
+                FieldCondition(
+                    key=field,
+                    range=Range(
+                        gte=value.get("gte"),
+                        lte=value.get("lte"),
+                    ),
+                )
+            )
+        else:
+            conditions.append(
+                FieldCondition(
+                    key=field,
+                    match=MatchValue(value=value),
+                )
+            )
+    return Filter(must=conditions)
 
 
 # ── filter builder ────────────────────────────────────────
