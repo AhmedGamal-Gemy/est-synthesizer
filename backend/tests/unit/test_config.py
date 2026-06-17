@@ -58,11 +58,19 @@ class TestSettingsDefaults:
 
     def test_default_embedding_model(self):
         s = _make_settings()
-        assert s.EMBEDDING_MODEL == "mistral/mistral-embed"
+        assert s.EMBEDDING_MODEL == "BAAI/bge-large-en-v1.5"
 
     def test_default_embedding_vector_size(self):
         s = _make_settings()
         assert s.EMBEDDING_VECTOR_SIZE == 1024
+
+    def test_default_embedding_query_prefix(self):
+        s = _make_settings()
+        assert s.EMBEDDING_QUERY_PREFIX == "Represent this sentence for searching relevant passages: "
+
+    def test_default_embedding_query_prefix(self):
+        s = _make_settings()
+        assert s.EMBEDDING_QUERY_PREFIX == "Represent this sentence for searching relevant passages: "
 
     def test_default_qdrant_collection_long(self):
         s = _make_settings()

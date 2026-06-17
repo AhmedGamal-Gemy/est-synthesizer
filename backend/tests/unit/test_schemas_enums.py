@@ -1,4 +1,4 @@
-"""Unit tests for backend.app.schemas.enums — auto() values and str behaviour."""
+"""Unit tests for backend.app.schemas.enums — LowerStrEnum auto() values and str behaviour."""
 
 from enum import Enum
 
@@ -6,6 +6,7 @@ from backend.app.schemas.enums import (
     Difficulty,
     DistractorRole,
     JobStatus,
+    LowerStrEnum,
     PassageCategory,
     PassageType,
     QuestionFlag,
@@ -16,13 +17,13 @@ from backend.app.schemas.enums import (
 
 # ── PassageType ──────────────────────────────────────────────
 
-def test_passage_type_long_value_is_auto_str_numeric():
-    """auto() generates sequential values; (str, Enum) casts them to strings."""
-    assert PassageType.LONG.value == "1"
+def test_passage_type_long_value_is_lowered_name():
+    """LowerStrEnum auto() generates lower-cased member name values."""
+    assert PassageType.LONG.value == "long"
 
 
-def test_passage_type_short_value_is_auto_str_numeric():
-    assert PassageType.SHORT.value == "2"
+def test_passage_type_short_value_is_lowered_name():
+    assert PassageType.SHORT.value == "short"
 
 
 def test_passage_type_str_returns_class_dot_name():
@@ -47,9 +48,10 @@ def test_passage_category_member_names():
     assert set(m.name for m in PassageCategory) == expected
 
 
-def test_passage_category_auto_values_are_sequential_strings():
+def test_passage_category_auto_values_are_lowered_names():
     values = [m.value for m in PassageCategory]
-    assert values == [str(i) for i in range(1, len(values) + 1)]
+    expected = ["essay", "narrative", "scientific", "history", "argumentative"]
+    assert values == expected
 
 
 def test_passage_category_str_returns_class_dot_name():
@@ -64,7 +66,7 @@ def test_passage_category_member_count():
 # ── QuestionType ─────────────────────────────────────────────
 
 def test_question_type_multiple_choice_value():
-    assert QuestionType.MULTIPLE_CHOICE.value == "1"
+    assert QuestionType.MULTIPLE_CHOICE.value == "multiple_choice"
 
 
 def test_question_type_str_returns_class_dot_name():
@@ -98,9 +100,10 @@ def test_skill_type_member_names():
     assert set(m.name for m in SkillType) == expected
 
 
-def test_skill_type_auto_values_are_sequential_strings():
+def test_skill_type_auto_values_are_lowered_names():
     values = [m.value for m in SkillType]
-    assert values == [str(i) for i in range(1, len(values) + 1)]
+    expected = [m.name.lower() for m in SkillType]
+    assert values == expected
 
 
 def test_skill_type_str_returns_class_dot_name():
@@ -115,15 +118,15 @@ def test_skill_type_member_count():
 # ── Difficulty ────────────────────────────────────────────────
 
 def test_difficulty_easy_value():
-    assert Difficulty.EASY.value == "1"
+    assert Difficulty.EASY.value == "easy"
 
 
 def test_difficulty_medium_value():
-    assert Difficulty.MEDIUM.value == "2"
+    assert Difficulty.MEDIUM.value == "medium"
 
 
 def test_difficulty_hard_value():
-    assert Difficulty.HARD.value == "3"
+    assert Difficulty.HARD.value == "hard"
 
 
 def test_difficulty_str_returns_class_dot_name():
@@ -138,9 +141,9 @@ def test_difficulty_member_count():
 # ── DistractorRole ────────────────────────────────────────────
 
 def test_distractor_role_values():
-    assert DistractorRole.BEST_ANSWER.value == "1"
-    assert DistractorRole.GOOD_NOT_BEST.value == "2"
-    assert DistractorRole.COMPLETELY_WRONG.value == "3"
+    assert DistractorRole.BEST_ANSWER.value == "best_answer"
+    assert DistractorRole.GOOD_NOT_BEST.value == "good_not_best"
+    assert DistractorRole.COMPLETELY_WRONG.value == "completely_wrong"
 
 
 def test_distractor_role_str_returns_class_dot_name():
@@ -169,9 +172,10 @@ def test_question_flag_member_names():
     assert set(m.name for m in QuestionFlag) == expected
 
 
-def test_question_flag_auto_values_are_sequential_strings():
+def test_question_flag_auto_values_are_lowered_names():
     values = [m.value for m in QuestionFlag]
-    assert values == [str(i) for i in range(1, len(values) + 1)]
+    expected = [m.name.lower() for m in QuestionFlag]
+    assert values == expected
 
 
 def test_question_flag_str_returns_class_dot_name():
@@ -198,9 +202,10 @@ def test_job_status_member_names():
     assert set(m.name for m in JobStatus) == expected
 
 
-def test_job_status_auto_values_are_sequential_strings():
+def test_job_status_auto_values_are_lowered_names():
     values = [m.value for m in JobStatus]
-    assert values == [str(i) for i in range(1, len(values) + 1)]
+    expected = [m.name.lower() for m in JobStatus]
+    assert values == expected
 
 
 def test_job_status_str_returns_class_dot_name():
@@ -216,11 +221,12 @@ def test_job_status_all_members():
 
 # ── All enums are (str, Enum) subclasses ─────────────────────
 
-def test_all_enums_are_str_enum():
+def test_all_enums_are_lower_str_enum():
     for enum_cls in [
         PassageType, PassageCategory, QuestionType, SkillType,
         Difficulty, DistractorRole, QuestionFlag, JobStatus,
     ]:
+        assert issubclass(enum_cls, LowerStrEnum)
         assert issubclass(enum_cls, str)
         assert issubclass(enum_cls, Enum)
 

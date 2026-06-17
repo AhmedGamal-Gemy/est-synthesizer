@@ -2,16 +2,17 @@
 
 Provides an async ``QdrantManager`` that:
 - Creates / reuses ``long_passages`` and ``short_passages`` collections
-- Embeds passages via LiteLLM and upserts them
+- Embeds passages via local sentence-transformers (BGE) model
 - Searches with cosine similarity and optional MMR diversity
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
-import litellm
+from sentence_transformers import SentenceTransformer
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
@@ -20,6 +21,7 @@ from qdrant_client.models import (
     MatchValue,
     Mmr,
     NearestQuery,
+    PayloadSchemaType,
     PointStruct,
     Range,
     VectorParams,
@@ -38,20 +40,34 @@ COLLECTION_LONG = settings.QDRANT_COLLECTION_LONG
 COLLECTION_SHORT = settings.QDRANT_COLLECTION_SHORT
 COLLECTIONS = (COLLECTION_LONG, COLLECTION_SHORT)
 
-EMBEDDING_MODEL = getattr(settings, "EMBEDDING_MODEL", "mistral/mistral-embed")
+EMBEDDING_MODEL_NAME = getattr(settings, "EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5")
 VECTOR_SIZE = getattr(settings, "EMBEDDING_VECTOR_SIZE", 1024)
+QUERY_PREFIX = getattr(settings, "EMBEDDING_QUERY_PREFIX", "Represent this sentence for searching relevant passages: ")
+
+# Lazy-loaded sentence-transformers singleton (downloaded on first use)
+_embedding_model: SentenceTransformer | None = None
+
+
+def _get_embedding_model() -> SentenceTransformer:
+    """Return the shared SentenceTransformer instance (lazy init)."""
+    global _embedding_model
+    if _embedding_model is None:
+        logger.info("Loading embedding model '%s' …", EMBEDDING_MODEL_NAME)
+        _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        logger.info("Embedding model loaded (dim=%d).", _embedding_model.get_sentence_embedding_dimension())
+    return _embedding_model
 
 # MMR defaults (used when use_mmr=True but no explicit values given)
 MMR_DEFAULT_DIVERSITY = 0.5
 MMR_DEFAULT_CANDIDATES = 100
 
-# Payload fields indexed for filtering
-PAYLOAD_INDEXES = [
-    "passage_type",
-    "reading_level",
-    "word_count",
-    "last_used_at",
-]
+# Payload fields indexed for filtering (field → schema type)
+PAYLOAD_INDEXES: dict[str, PayloadSchemaType] = {
+    "passage_type": PayloadSchemaType.KEYWORD,
+    "reading_level": PayloadSchemaType.FLOAT,
+    "word_count": PayloadSchemaType.INTEGER,
+    "last_used_at": PayloadSchemaType.KEYWORD,
+}
 
 # ---------------------------------------------------------------------------
 # Manager
@@ -62,7 +78,13 @@ class QdrantManager:
     """Async wrapper around Qdrant for passage storage and retrieval."""
 
     def __init__(self, url: str = settings.QDRANT_URL) -> None:
-        self.client: AsyncQdrantClient = AsyncQdrantClient(url=url)
+        self.client: AsyncQdrantClient = AsyncQdrantClient(
+            url=url,
+            # qdrant-client 1.18.x vs server 1.15.x — minor diff > 1
+            # triggers a warning and silently drops operations.
+            # Suppress the check so real upserts/searches work.
+            check_compatibility=False,
+        )
 
     # ── lifecycle ────────────────────────────────────────
 
@@ -74,23 +96,47 @@ class QdrantManager:
                 logger.info("Collection '%s' already exists, skipping.", name)
                 continue
 
-            await self.client.create_collection(
-                collection_name=name,
-                vectors_config=VectorParams(
-                    size=VECTOR_SIZE,
-                    distance=Distance.COSINE,
-                ),
-            )
+            try:
+                await self.client.create_collection(
+                    collection_name=name,
+                    vectors_config=VectorParams(
+                        size=VECTOR_SIZE,
+                        distance=Distance.COSINE,
+                    ),
+                )
+            except Exception as exc:
+                # Qdrant may reject creation if stale on-disk data remains
+                # from a prior run — collection_exists returns False while
+                # data files block a fresh creation. Force-recreate to clear
+                # the zombie state.
+                if "already exists" in str(exc).lower():
+                    logger.warning(
+                        "Collection '%s' has stale on-disk data, "
+                        "deleting and recreating.",
+                        name,
+                    )
+                    await self.client.delete_collection(name)
+                    await self.client.create_collection(
+                        collection_name=name,
+                        vectors_config=VectorParams(
+                            size=VECTOR_SIZE,
+                            distance=Distance.COSINE,
+                        ),
+                    )
+                else:
+                    raise
+
             logger.info(
                 "Created collection '%s' (size=%d, distance=COSINE).",
                 name,
                 VECTOR_SIZE,
             )
 
-            for field in PAYLOAD_INDEXES:
+            for field, schema_type in PAYLOAD_INDEXES.items():
                 await self.client.create_payload_index(
                     collection_name=name,
                     field_name=field,
+                    field_schema=schema_type,
                 )
 
     async def close(self) -> None:
@@ -100,10 +146,23 @@ class QdrantManager:
 
     # ── embedding ────────────────────────────────────────
 
-    async def _embed(self, text: str) -> list[float]:
-        """Return a dense vector for *text* via LiteLLM."""
-        resp = await litellm.aembedding(model=EMBEDDING_MODEL, input=text)
-        return resp.data[0]["embedding"]  # type: ignore[index]
+    async def _embed(self, text: str, *, is_query: bool = False) -> list[float]:
+        """Return a dense vector for *text* via the local BGE model.
+
+        BGE models require an instruction prefix for *query* texts but not
+        for *document* texts.  ``is_query=True`` prepends the configured
+        ``QUERY_PREFIX``; ``is_query=False`` (the default, used for
+        upserts) embeds the raw text.
+
+        ``SentenceTransformer.encode()`` is synchronous so we offload it
+        to a thread via ``asyncio.to_thread()``.
+        """
+        input_text = (QUERY_PREFIX + text) if is_query else text
+        model = _get_embedding_model()
+        vector: list[float] = await asyncio.to_thread(
+            model.encode, input_text, convert_to_numpy=False,
+        )
+        return vector
 
     # ── write ────────────────────────────────────────────
 
@@ -189,7 +248,7 @@ class QdrantManager:
         -------
         List of ``{id, score, payload}`` dicts.
         """
-        query_vector = await self._embed(query_text)
+        query_vector = await self._embed(query_text, is_query=True)
         qdrant_filter = _build_filter(filters) if filters else None
 
         if use_mmr:

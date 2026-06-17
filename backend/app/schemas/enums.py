@@ -1,22 +1,30 @@
 """EST Synthesizer - Shared Enum Definitions.
 
-All enums use ``Enum.auto()`` with a ``_generate_next_value_`` override
-so that member values are the lower-cased member name (e.g. ``LONG`` →
-``"long"``).  This keeps the source of truth in one place and avoids
-hard-coding string literals in multiple files.
+All enums inherit from ``LowerStrEnum`` which overrides
+``_generate_next_value_`` so that ``auto()`` produces the lower-cased
+member name (e.g. ``LONG`` → ``"long"``).  This keeps the source of truth
+in one place and avoids hard-coding string literals in multiple files.
 """
 
 from enum import Enum, auto
 
 
-class PassageType(str, Enum):
+class LowerStrEnum(str, Enum):
+    """Base enum where ``auto()`` values are the lower-cased member name."""
+
+    @staticmethod
+    def _generate_next_value_(name: str, start: int, count: int, last_values: list) -> str:
+        return name.lower()
+
+
+class PassageType(LowerStrEnum):
     """Classification of a passage by length/structure."""
 
     LONG = auto()   # "long"
     SHORT = auto()  # "short"
 
 
-class PassageCategory(str, Enum):
+class PassageCategory(LowerStrEnum):
     """Content classification of a passage."""
 
     ESSAY = auto()          # "essay"
@@ -26,13 +34,13 @@ class PassageCategory(str, Enum):
     ARGUMENTATIVE = auto()  # "argumentative"
 
 
-class QuestionType(str, Enum):
+class QuestionType(LowerStrEnum):
     """High-level question modality."""
 
     MULTIPLE_CHOICE = auto()  # "multiple_choice"
 
 
-class SkillType(str, Enum):
+class SkillType(LowerStrEnum):
     """EST skill taxonomy. American English terminology."""
 
     # Writing
@@ -54,7 +62,7 @@ class SkillType(str, Enum):
     GRAPH = auto()                  # "graph"
 
 
-class Difficulty(str, Enum):
+class Difficulty(LowerStrEnum):
     """Relative difficulty of a question."""
 
     EASY = auto()   # "easy"
@@ -62,7 +70,7 @@ class Difficulty(str, Enum):
     HARD = auto()   # "hard"
 
 
-class DistractorRole(str, Enum):
+class DistractorRole(LowerStrEnum):
     """Pedagogical role assigned to each wrong answer choice.
 
     Exactly one ``BEST_ANSWER`` and one ``GOOD_NOT_BEST`` per question;
@@ -74,7 +82,7 @@ class DistractorRole(str, Enum):
     COMPLETELY_WRONG = auto() # "completely_wrong"
 
 
-class QuestionFlag(str, Enum):
+class QuestionFlag(LowerStrEnum):
     """American English quality flags raised during human review."""
 
     AMBIGUOUS = auto()             # "ambiguous"
@@ -87,7 +95,7 @@ class QuestionFlag(str, Enum):
     FACTUALLY_INCORRECT = auto()   # "factually_incorrect"
 
 
-class JobStatus(str, Enum):
+class JobStatus(LowerStrEnum):
     """Lifecycle status of a generation job."""
 
     PENDING = auto()      # "pending"

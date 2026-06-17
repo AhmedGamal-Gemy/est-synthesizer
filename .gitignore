@@ -24,8 +24,7 @@ venv/
 Thumbs.db
 
 # Project runtime
-data/generated/
-data/db/
+data/
 *.sqlite
 *.sqlite3
 

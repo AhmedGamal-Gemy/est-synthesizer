@@ -13,8 +13,9 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION_LONG: str = "long_passages"
     QDRANT_COLLECTION_SHORT: str = "short_passages"
 
-    EMBEDDING_MODEL: str = "mistral/mistral-embed"
+    EMBEDDING_MODEL: str = "BAAI/bge-large-en-v1.5"
     EMBEDDING_VECTOR_SIZE: int = 1024
+    EMBEDDING_QUERY_PREFIX: str = "Represent this sentence for searching relevant passages: "
 
     # ── paths ───────────────────────────────────────
     SQLITE_PATH: str = "data/db/est.db"
