@@ -638,6 +638,7 @@
       'use strict';
 
       // ── State ──────────────────────────
+      let API_BASE = '';          // set from /api/config on load
       let blueprints = [];
       let currentId = null;       // id of blueprint being edited (null = new)
       let isBuiltin = false;      // whether current blueprint is built-in
@@ -676,7 +677,7 @@
 
       // ── Helpers ────────────────────────
       function apiUrl(path) {
-        return '/api' + path;
+        return API_BASE + '/api' + path;
       }
 
       function showError(msg) {
@@ -965,16 +966,25 @@
       });
 
       // ── Init ───────────────────────────
-      fetchBlueprints().catch(e => {
-        showError('Failed to load blueprints: ' + e.message);
-        tbody.innerHTML = `
-          <tr class="loading-row">
-            <td colspan="5" style="color: var(--danger);">
-              Failed to load. Check that the API is running.
-            </td>
-          </tr>
-        `;
-      });
+      (async function init() {
+        // Fetch host/port from the API itself so the frontend
+        // uses the same origin even when port changes.
+        try {
+          const cfg = await fetch('/api/config').then(r => r.json());
+          API_BASE = cfg.api_base.replace(/\/+$/, '');
+        } catch { /* same-origin fallback, API_BASE stays '' */ }
+
+        fetchBlueprints().catch(e => {
+          showError('Failed to load blueprints: ' + e.message);
+          tbody.innerHTML = `
+            <tr class="loading-row">
+              <td colspan="5" style="color: var(--danger);">
+                Failed to load. Check that the API is running.
+              </td>
+            </tr>
+          `;
+        });
+      })();
     })();
   </script>
 </body>
