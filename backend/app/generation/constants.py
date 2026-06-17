@@ -41,8 +41,9 @@ SKILL_TYPE_DESCRIPTIONS: dict[str, str] = {
         "and persuasive techniques"
     ),
     "synthesis": (
-        "Synthesis — combining information from multiple sources "
-        "or passage segments"
+        "Synthesis — integrating information from different parts "
+        "of a single passage to form conclusions not explicitly "
+        "stated in any one location"
     ),
     "vocabulary_in_context": (
         "Vocabulary in Context — determining word meaning "
@@ -101,9 +102,9 @@ passage. Avoid asking about the same fact or skill twice.
 - **Writing module (Module 1)** uses wordy answer choices — full sentences \
 with only punctuation or single-word differences between options. This is \
 the EST's hallmark style for conventions/editing questions.
-- **Hard questions** may employ "scope mismatch" — the correct reasoning \
+- **Hard questions** must employ "scope mismatch" — the correct reasoning \
 extends beyond the immediate sentence the question appears to target.
-- **Cumulative awareness** — later questions may build on content or \
+- **Thorough reading reward (cumulative awareness)** — later questions may build on content or \
 reasoning established by earlier questions; this rewards students who read \
 the passage thoroughly before answering.
 
@@ -161,12 +162,16 @@ WRITING_ADDON: str = """\
 
 - Always include "NO CHANGE" as one of the four answer choices for \
 writing/editing questions. This represents the original text as written.
-- Answer choices should be full sentences, closely worded, with only \
-punctuation or single-word differences between options.
+- Answer choices for conventions/editing questions should be full sentences, \
+closely worded, with only punctuation or single-word differences between options.
 - The correct answer is the version that best conforms to standard English \
-conventions (grammar, usage, punctuation, sentence structure).
+conventions of grammar, punctuation, and mechanics — NOT vocabulary or \
+rhetorical effectiveness.
 - "NO CHANGE" should use distractor_role `best_answer` when the original \
 text is already correct, or `good_not_best` / `completely_wrong` when the \
 original text contains an error that a better alternative fixes.
 - Place "NO CHANGE" as choice A by convention.
+- "NO CHANGE" applies only to grammar, punctuation, and editing questions. \
+Do NOT include "NO CHANGE" as an option for vocabulary-in-context or \
+rhetoric questions.
 """
