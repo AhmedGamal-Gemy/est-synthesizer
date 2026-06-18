@@ -10,12 +10,11 @@ are defined in backend.app.generation.constants.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Union
+from typing import List
 
 from backend.app.generation.constants import SYSTEM_PROMPT, WRITING_ADDON, SKILL_TYPE_DESCRIPTIONS
-from backend.app.schemas.enums import Difficulty, DistractorRole, ModuleType, SkillType
+from backend.app.schemas.enums import ModuleType, SkillType
 from backend.app.schemas.passage import Passage
-from backend.app.schemas.question import LLMBatchOutput, LLMQuestionOutput
 from backend.app.schemas.test import ModuleSlot
 
 logger = logging.getLogger(__name__)
@@ -123,6 +122,7 @@ def build_user_prompt(
     task_block += f"Skill Type: {skill_desc}\n"
     task_block += f"Difficulty Level: {difficulty_value}\n"
     task_block += f"Number of Questions: {count}\n"
+    task_block += f"Difficulty Distribution: {slot_config.easy_count} easy, {slot_config.medium_count} medium, {slot_config.hard_count} hard\n"
 
     if module_type == ModuleType.WRITING:
         task_block += f"\n{WRITING_ADDON}\n"
