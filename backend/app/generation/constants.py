@@ -112,19 +112,18 @@ the passage thoroughly before answering.
 
 Produce a single JSON object with this exact structure:
 
-```json
 {
   "reasoning": "chain-of-thought analysis of the passage and question design strategy",
   "questions": [
     {
       "question_text": "the question prompt",
       "choices": [
-        {"letter": "A", "text": "...", "distractor_role": "best_answer"},
-        {"letter": "B", "text": "...", "distractor_role": "good_not_best"},
+        {"letter": "A", "text": "...", "distractor_role": "good_not_best"},
+        {"letter": "B", "text": "...", "distractor_role": "best_answer"},
         {"letter": "C", "text": "...", "distractor_role": "completely_wrong"},
         {"letter": "D", "text": "...", "distractor_role": "completely_wrong"}
       ],
-      "correct_answer": "A",
+      "correct_answer": "B",
       "explanation": "why this answer is correct and others are not",
       "supporting_line": "exact substring from the passage",
       "skill_type": "conventions_of_standard_english",
@@ -132,7 +131,6 @@ Produce a single JSON object with this exact structure:
     }
   ]
 }
-```
 
 Field rules:
 - `letter` must be one of: A, B, C, D.

@@ -129,7 +129,7 @@ def test_system_prompt_mentions_hard_difficulty():
 
 
 def test_system_prompt_contains_json_output_format_example():
-    assert "```json" in SYSTEM_PROMPT
+    assert "```json" not in SYSTEM_PROMPT
     assert '"questions"' in SYSTEM_PROMPT
 
 
