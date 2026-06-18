@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from backend.app.schemas.enums import Difficulty, SkillType
+from backend.app.schemas.enums import Difficulty, ModuleType, SkillType
 from backend.app.schemas.question import AnswerChoice, GeneratedQuestion, GeneratedPassageBlock
 from backend.app.schemas.enums import DistractorRole
 from backend.app.schemas.test import (
@@ -50,11 +50,16 @@ def _valid_question(**overrides) -> dict:
 
 
 def _valid_slot(**overrides) -> dict:
+    difficulty = overrides.get("difficulty", Difficulty.MEDIUM)
+    question_count = overrides.get("question_count", 5)
     base = {
         "slot_number": 1,
         "skill_type": SkillType.RHETORIC,
-        "difficulty": Difficulty.MEDIUM,
-        "question_count": 5,
+        "difficulty": difficulty,
+        "question_count": question_count,
+        "easy_count": question_count if difficulty == Difficulty.EASY else 0,
+        "medium_count": question_count if difficulty == Difficulty.MEDIUM else 0,
+        "hard_count": question_count if difficulty == Difficulty.HARD else 0,
     }
     base.update(overrides)
     return base
@@ -69,7 +74,9 @@ def test_module_slot_creation():
     assert s.difficulty == Difficulty.MEDIUM
     assert s.question_count == 5
     assert s.has_figure is False
-    assert s.figure_data is None
+    assert s.easy_count == 0
+    assert s.medium_count == 5
+    assert s.hard_count == 0
 
 
 def test_module_slot_slot_number_ge1():
@@ -107,67 +114,103 @@ def test_module_slot_has_figure_explicit_true():
     assert s.has_figure is True
 
 
-def test_module_slot_figure_data_default_none():
+# ── ModuleSlot — difficulty count validator ──────────────────
+
+
+def test_module_slot_difficulty_counts_match_question_count():
     s = ModuleSlot(**_valid_slot())
-    assert s.figure_data is None
+    assert s.easy_count + s.medium_count + s.hard_count == s.question_count
 
 
-def test_module_slot_figure_data_explicit():
-    s = ModuleSlot(**_valid_slot(figure_data="base64image"))
-    assert s.figure_data == "base64image"
+def test_module_slot_difficulty_counts_for_easy():
+    s = ModuleSlot(**_valid_slot(difficulty=Difficulty.EASY, question_count=3, easy_count=3, medium_count=0, hard_count=0))
+    assert s.easy_count == 3
+    assert s.medium_count == 0
+    assert s.hard_count == 0
+
+
+def test_module_slot_difficulty_counts_for_hard():
+    s = ModuleSlot(**_valid_slot(difficulty=Difficulty.HARD, question_count=4, easy_count=0, medium_count=0, hard_count=4))
+    assert s.hard_count == 4
+
+
+def test_module_slot_validator_rejects_mismatched_counts():
+    with pytest.raises(ValidationError, match=r"easy_count \+ medium_count \+ hard_count must equal question_count"):
+        ModuleSlot(
+            slot_number=1,
+            skill_type=SkillType.RHETORIC,
+            difficulty=Difficulty.MEDIUM,
+            question_count=5,
+            easy_count=2,
+            medium_count=2,
+            hard_count=2,
+        )
+
+
+def test_module_slot_validator_rejects_all_zero_counts():
+    with pytest.raises(ValidationError, match=r"easy_count \+ medium_count \+ hard_count must equal question_count"):
+        ModuleSlot(
+            slot_number=1,
+            skill_type=SkillType.RHETORIC,
+            difficulty=Difficulty.MEDIUM,
+            question_count=5,
+            easy_count=0,
+            medium_count=0,
+            hard_count=0,
+        )
 
 
 # ── ModuleConfig ──────────────────────────────────────────────
 
 def test_module_config_creation():
     slot = ModuleSlot(**_valid_slot())
-    mc = ModuleConfig(module_number=1, module_type="reading_long", slots=[slot])
+    mc = ModuleConfig(module_number=1, module_type=ModuleType.READING_LONG, slots=[slot])
     assert mc.module_number == 1
-    assert mc.module_type == "reading_long"
+    assert mc.module_type == ModuleType.READING_LONG
     assert mc.slots == [slot]
 
 
 def test_module_config_question_count_property():
-    s1 = ModuleSlot(**_valid_slot(question_count=5))
-    s2 = ModuleSlot(**_valid_slot(slot_number=2, question_count=3))
-    mc = ModuleConfig(module_number=1, module_type="writing", slots=[s1, s2])
+    s1 = ModuleSlot(**_valid_slot(question_count=5, medium_count=5))
+    s2 = ModuleSlot(**_valid_slot(slot_number=2, question_count=3, medium_count=3))
+    mc = ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[s1, s2])
     assert mc.question_count == 8
 
 
 def test_module_config_question_count_single_slot():
-    s = ModuleSlot(**_valid_slot(question_count=7))
-    mc = ModuleConfig(module_number=1, module_type="writing", slots=[s])
+    s = ModuleSlot(**_valid_slot(question_count=7, medium_count=7))
+    mc = ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[s])
     assert mc.question_count == 7
 
 
 def test_module_config_module_number_ge1_le3():
     for mn in [1, 2, 3]:
-        mc = ModuleConfig(module_number=mn, module_type="writing", slots=[ModuleSlot(**_valid_slot())])
+        mc = ModuleConfig(module_number=mn, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])
         assert mc.module_number == mn
 
 
 def test_module_config_module_number_zero_invalid():
     with pytest.raises(ValidationError):
-        ModuleConfig(module_number=0, module_type="writing", slots=[ModuleSlot(**_valid_slot())])
+        ModuleConfig(module_number=0, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])
 
 
 def test_module_config_module_number_four_invalid():
     with pytest.raises(ValidationError):
-        ModuleConfig(module_number=4, module_type="writing", slots=[ModuleSlot(**_valid_slot())])
+        ModuleConfig(module_number=4, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])
 
 
 def test_module_config_slots_min_length_1():
     with pytest.raises(ValidationError):
-        ModuleConfig(module_number=1, module_type="writing", slots=[])
+        ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[])
 
 
 def test_module_config_has_figure_default_false():
-    mc = ModuleConfig(module_number=1, module_type="writing", slots=[ModuleSlot(**_valid_slot())])
+    mc = ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])
     assert mc.has_figure is False
 
 
 def test_module_config_wordy_answer_style_default_false():
-    mc = ModuleConfig(module_number=1, module_type="writing", slots=[ModuleSlot(**_valid_slot())])
+    mc = ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])
     assert mc.wordy_answer_style is False
 
 
@@ -175,7 +218,7 @@ def test_module_config_wordy_answer_style_default_false():
 
 def test_test_blueprint_creation():
     slot = ModuleSlot(**_valid_slot())
-    mc = ModuleConfig(module_number=1, module_type="reading_long", slots=[slot])
+    mc = ModuleConfig(module_number=1, module_type=ModuleType.READING_LONG, slots=[slot])
     bp = TestBlueprint(
         id="bp-001",
         name="DEFAULT_BLUEPRINT",
@@ -193,7 +236,7 @@ def test_test_blueprint_total_questions_ge0():
     bp = TestBlueprint(
         id="bp-001",
         name="test",
-        modules=[ModuleConfig(module_number=1, module_type="writing", slots=[ModuleSlot(**_valid_slot())])],
+        modules=[ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])],
         total_questions=0,
         difficulty_distribution={"easy": 0.3, "medium": 0.4, "hard": 0.3},
     )
@@ -205,7 +248,7 @@ def test_test_blueprint_total_questions_negative_invalid():
         TestBlueprint(
             id="bp-001",
             name="test",
-            modules=[ModuleConfig(module_number=1, module_type="writing", slots=[ModuleSlot(**_valid_slot())])],
+            modules=[ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])],
             total_questions=-1,
             difficulty_distribution={"easy": 0.3, "medium": 0.4, "hard": 0.3},
         )
@@ -226,7 +269,7 @@ def test_test_blueprint_repr():
     bp = TestBlueprint(
         id="bp-001",
         name="DEFAULT_BLUEPRINT",
-        modules=[ModuleConfig(module_number=1, module_type="writing", slots=[ModuleSlot(**_valid_slot())])],
+        modules=[ModuleConfig(module_number=1, module_type=ModuleType.WRITING, slots=[ModuleSlot(**_valid_slot())])],
         total_questions=5,
         difficulty_distribution={"easy": 0.3, "medium": 0.4, "hard": 0.3},
     )
@@ -243,13 +286,13 @@ def test_generated_module_creation():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=1,
-        module_type="reading_long",
+        module_type=ModuleType.READING_LONG,
         passages=[pb],
         questions=[q],
         question_count=1,
     )
     assert gm.module_number == 1
-    assert gm.module_type == "reading_long"
+    assert gm.module_type == ModuleType.READING_LONG
     assert gm.question_count == 1
 
 
@@ -258,7 +301,7 @@ def test_generated_module_repr():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=2,
-        module_type="reading_short",
+        module_type=ModuleType.READING_SHORT,
         passages=[pb],
         questions=[q],
         question_count=1,
@@ -275,7 +318,7 @@ def test_generated_module_question_count_ge0():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=1,
-        module_type="writing",
+        module_type=ModuleType.WRITING,
         passages=[pb],
         questions=[q],
         question_count=0,
@@ -290,7 +333,7 @@ def test_generated_test_creation():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=1,
-        module_type="reading_long",
+        module_type=ModuleType.READING_LONG,
         passages=[pb],
         questions=[q],
         question_count=1,
@@ -313,7 +356,7 @@ def test_generated_test_repr():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=1,
-        module_type="reading_long",
+        module_type=ModuleType.READING_LONG,
         passages=[pb],
         questions=[q],
         question_count=1,
@@ -337,7 +380,7 @@ def test_generated_test_optional_pdf_paths():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=1,
-        module_type="reading_long",
+        module_type=ModuleType.READING_LONG,
         passages=[pb],
         questions=[q],
         question_count=1,
@@ -359,7 +402,7 @@ def test_generated_test_created_at_auto_populates():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=1,
-        module_type="reading_long",
+        module_type=ModuleType.READING_LONG,
         passages=[pb],
         questions=[q],
         question_count=1,
@@ -382,7 +425,7 @@ def test_generated_test_strict_allows_extra_fields():
     pb = GeneratedPassageBlock(passage_id="p-001", passage_text="Text", questions=[q])
     gm = GeneratedModule(
         module_number=1,
-        module_type="reading_long",
+        module_type=ModuleType.READING_LONG,
         passages=[pb],
         questions=[q],
         question_count=1,

@@ -7,9 +7,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .enums import Difficulty, SkillType
+from .enums import Difficulty, ModuleType, SkillType
 from .question import GeneratedPassageBlock, GeneratedQuestion
 
 
@@ -21,7 +21,7 @@ class GeneratedModule(BaseModel):
     module_number: int = Field(
         ..., ge=1, le=3, description="Module index (1-3)"
     )
-    module_type: str = Field(
+    module_type: ModuleType = Field(
         ...,
         description="One of: writing, reading_long, reading_short",
     )
@@ -36,7 +36,7 @@ class GeneratedModule(BaseModel):
     def __repr__(self) -> str:
         return (
             f"GeneratedModule(module_number={self.module_number}, "
-            f"module_type={self.module_type!r}, questions={self.question_count})"
+            f"module_type={self.module_type.value!r}, questions={self.question_count})"
         )
 
 
@@ -87,9 +87,17 @@ class ModuleSlot(BaseModel):
     has_figure: bool = Field(
         default=False, description="Whether this slot requires a figure"
     )
-    figure_data: Optional[str] = Field(
-        default=None, description="Optional figure data (e.g. base64 image)"
-    )
+    easy_count: int = Field(default=0, ge=0, description="Number of easy questions in this slot")
+    medium_count: int = Field(default=0, ge=0, description="Number of medium questions in this slot")
+    hard_count: int = Field(default=0, ge=0, description="Number of hard questions in this slot")
+
+    @model_validator(mode="after")
+    def _validate_difficulty_counts(self) -> "ModuleSlot":
+        if self.easy_count + self.medium_count + self.hard_count != self.question_count:
+            raise ValueError(
+                "easy_count + medium_count + hard_count must equal question_count"
+            )
+        return self
 
 
 class ModuleConfig(BaseModel):
@@ -100,7 +108,7 @@ class ModuleConfig(BaseModel):
     module_number: int = Field(
         ..., ge=1, le=3, description="Module index (1-3)"
     )
-    module_type: str = Field(
+    module_type: ModuleType = Field(
         ...,
         description="One of: writing, reading_long, or reading_short",
     )

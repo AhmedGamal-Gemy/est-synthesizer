@@ -34,6 +34,14 @@ class PassageCategory(LowerStrEnum):
     ARGUMENTATIVE = auto()  # "argumentative"
 
 
+class ModuleType(LowerStrEnum):
+    """Module type within a test blueprint."""
+
+    WRITING = auto()        # "writing"
+    READING_LONG = auto()   # "reading_long"
+    READING_SHORT = auto()  # "reading_short"
+
+
 class QuestionType(LowerStrEnum):
     """High-level question modality."""
 
