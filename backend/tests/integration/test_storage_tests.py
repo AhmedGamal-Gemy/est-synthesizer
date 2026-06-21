@@ -10,6 +10,7 @@ from backend.app.schemas import (
     Difficulty,
     GeneratedModule,
     GeneratedPassageBlock,
+    ModuleType,
     GeneratedQuestion,
     GeneratedTest,
     SkillType,
@@ -60,7 +61,7 @@ def _make_passage_block(**overrides) -> GeneratedPassageBlock:
 def _make_module(**overrides) -> GeneratedModule:
     defaults = {
         "module_number": 1,
-        "module_type": "writing",
+        "module_type": ModuleType.WRITING,
         "passages": [_make_passage_block()],
         "questions": [_make_question()],
         "question_count": 1,

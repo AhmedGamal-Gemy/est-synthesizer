@@ -9,7 +9,7 @@ are defined in backend.app.generation.constants.
 
 from __future__ import annotations
 
-import logging
+import structlog
 from typing import List
 
 from backend.app.generation.constants import SYSTEM_PROMPT, WRITING_ADDON, SKILL_TYPE_DESCRIPTIONS
@@ -17,7 +17,7 @@ from backend.app.schemas.enums import ModuleType, SkillType
 from backend.app.schemas.passage import Passage
 from backend.app.schemas.test import ModuleSlot
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # build_system_prompt
@@ -149,8 +149,8 @@ def build_user_prompt(
             figure_block += f"Figure content: {passage.figure.data}\n"
         figure_block += "</FIGURE_DATA>"
         sections.append(figure_block)
-        logger.debug("Including figure data: caption=%s", passage.figure.caption)
+        logger.debug("Including figure data", caption=passage.figure.caption)
 
-    logger.debug("Built user prompt for skill=%s difficulty=%s count=%d remaining=%d", slot_config.skill_type.value, slot_config.difficulty.value, count, remaining)
+    logger.debug("Built user prompt", skill=slot_config.skill_type.value, difficulty=slot_config.difficulty.value, count=count, remaining=remaining)
 
     return "\n\n".join(sections)

@@ -14,6 +14,7 @@ Exports:
 from __future__ import annotations
 
 import logging
+import structlog
 from typing import Type
 
 from aiolimiter import AsyncLimiter
@@ -34,6 +35,9 @@ from backend.app.generation.exceptions import LLMCallError, LLMAPIError, LLMJSON
 
 # Module-level logger (used by tenacity before_sleep_log)
 _logger = logging.getLogger(__name__)
+
+# Module-level structlog logger (used for application logging)
+log = structlog.get_logger(__name__)
 
 
 class LLMQueue:
