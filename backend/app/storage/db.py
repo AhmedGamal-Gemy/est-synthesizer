@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import logging
+import structlog
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from threading import Lock
@@ -12,7 +12,7 @@ import aiosqlite
 
 # BLUEPRINT_TABLE_SQL is inlined below to avoid circular imports
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 DB_PATH: str = "data/db/est.db"
 _conn: aiosqlite.Connection | None = None
@@ -36,7 +36,7 @@ async def get_connection() -> AsyncGenerator[aiosqlite.Connection, None]:
                 _conn.row_factory = aiosqlite.Row
                 await _conn.execute("PRAGMA journal_mode=WAL")
                 await _conn.execute("PRAGMA foreign_keys=ON")
-                logger.info("SQLite connection opened: %s", DB_PATH)
+                logger.info("SQLite connection opened", db_path=str(DB_PATH))
     try:
         yield _conn
     except Exception:

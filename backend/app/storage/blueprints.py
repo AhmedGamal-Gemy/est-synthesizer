@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import logging
+import structlog
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,7 +11,7 @@ from backend.app.blueprint.default import DEFAULT_BLUEPRINT, HARDER_BLUEPRINT
 from backend.app.schemas import TestBlueprint
 from backend.app.storage.db import get_connection
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 BLUEPRINT_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS blueprints (
@@ -170,4 +170,4 @@ async def seed_builtin_blueprints() -> None:
             bp_id=bp.id,
             is_builtin=True,
         )
-        logger.info("Seeded built-in blueprint: %s", bp.id)
+        logger.info("Seeded built-in blueprint", blueprint_id=bp.id)

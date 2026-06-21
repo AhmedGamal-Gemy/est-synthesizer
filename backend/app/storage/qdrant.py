@@ -9,7 +9,7 @@ Provides an async ``QdrantManager`` that:
 from __future__ import annotations
 
 import asyncio
-import logging
+import structlog
 from typing import Any
 
 from sentence_transformers import SentenceTransformer
@@ -30,7 +30,7 @@ from qdrant_client.models import (
 from backend.app.config import settings
 from backend.app.schemas import Passage
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -52,9 +52,9 @@ def _get_embedding_model() -> SentenceTransformer:
     """Return the shared SentenceTransformer instance (lazy init)."""
     global _embedding_model
     if _embedding_model is None:
-        logger.info("Loading embedding model '%s' …", EMBEDDING_MODEL_NAME)
+        logger.info("Loading embedding model", model=EMBEDDING_MODEL_NAME)
         _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        logger.info("Embedding model loaded (dim=%d).", _embedding_model.get_sentence_embedding_dimension())
+        logger.info("Embedding model loaded", dim=_embedding_model.get_sentence_embedding_dimension())
     return _embedding_model
 
 # MMR defaults (used when use_mmr=True but no explicit values given)
@@ -93,7 +93,7 @@ class QdrantManager:
         for name in COLLECTIONS:
             exists = await self.client.collection_exists(name)
             if exists:
-                logger.info("Collection '%s' already exists, skipping.", name)
+                logger.info("Collection already exists, skipping", collection=name)
                 continue
 
             try:
@@ -111,9 +111,8 @@ class QdrantManager:
                 # the zombie state.
                 if "already exists" in str(exc).lower():
                     logger.warning(
-                        "Collection '%s' has stale on-disk data, "
-                        "deleting and recreating.",
-                        name,
+                        "Collection has stale on-disk data, deleting and recreating",
+                        collection=name,
                     )
                     await self.client.delete_collection(name)
                     await self.client.create_collection(
@@ -127,9 +126,10 @@ class QdrantManager:
                     raise
 
             logger.info(
-                "Created collection '%s' (size=%d, distance=COSINE).",
-                name,
-                VECTOR_SIZE,
+                "Created collection",
+                collection=name,
+                vector_size=VECTOR_SIZE,
+                distance="COSINE",
             )
 
             for field, schema_type in PAYLOAD_INDEXES.items():
@@ -200,10 +200,10 @@ class QdrantManager:
 
         await self.client.upsert(collection_name=collection, points=[point])
         logger.debug(
-            "Upserted passage '%s' (%s, %d words).",
-            passage.id,
-            passage.passage_type.value,
-            passage.word_count,
+            "Upserted passage",
+            passage_id=passage.id,
+            passage_type=passage.passage_type.value,
+            word_count=passage.word_count,
         )
 
     # ── read ─────────────────────────────────────────────

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import logging
+import structlog
 
 from backend.app.schemas import GeneratedTest
 from backend.app.storage.db import _ensure_utc, get_connection
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 INSERT_TEST_SQL = """
 INSERT INTO test_inventory
@@ -33,9 +33,9 @@ async def save_inventory_record(test: GeneratedTest) -> None:
                 _ensure_utc(test.created_at).isoformat(),
             ))
             await db.commit()
-        logger.debug("Test saved: %s", test.id)
+        logger.debug("Test saved", test_id=test.id)
     except Exception:
-        logger.exception("Failed to save test %s", test.id)
+        logger.exception("Failed to save test", test_id=test.id)
         raise
 
 
@@ -46,7 +46,7 @@ async def get_test(test_id: str) -> dict | None:
                 row = await cursor.fetchone()
         return dict(row) if row else None
     except Exception:
-        logger.exception("Failed to fetch test %s", test_id)
+        logger.exception("Failed to fetch test", test_id=test_id)
         raise
 
 
@@ -57,5 +57,5 @@ async def list_tests(limit: int = 20, offset: int = 0) -> list[dict]:
                 rows = await cursor.fetchall()
         return [dict(r) for r in rows]
     except Exception:
-        logger.exception("Failed to list tests (limit=%d, offset=%d)", limit, offset)
+        logger.exception("Failed to list tests", limit=limit, offset=offset)
         raise

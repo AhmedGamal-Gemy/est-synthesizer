@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-import logging
+import structlog
 from datetime import datetime
 from typing import List
 
 from backend.app.schemas import QuestionFeedback, QuestionFlag
 from backend.app.storage.db import _ensure_utc, get_connection
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 INSERT_FEEDBACK_SQL = """
 INSERT INTO question_feedback
@@ -44,11 +44,11 @@ async def save_feedback(feedback: QuestionFeedback) -> None:
                 _ensure_utc(feedback.created_at).isoformat(),
             ))
             await db.commit()
-        logger.debug("Feedback saved: %s", feedback.id)
+        logger.debug("Feedback saved", feedback_id=feedback.id)
     except ValueError:
         raise
     except Exception:
-        logger.exception("Failed to save feedback %s", feedback.id)
+        logger.exception("Failed to save feedback", feedback_id=feedback.id)
         raise
 
 
@@ -70,5 +70,5 @@ async def get_feedback_by_test(test_id: str) -> list[QuestionFeedback]:
             for r in rows
         ]
     except Exception:
-        logger.exception("Failed to fetch feedback for test %s", test_id)
+        logger.exception("Failed to fetch feedback for test", test_id=test_id)
         raise

@@ -16,13 +16,13 @@ Exports:
 from __future__ import annotations
 
 import json
-import logging
+import structlog
 
 import litellm
 
 from backend.app.generation.exceptions import LLMAPIError, LLMJSONError
 
-_logger = logging.getLogger(__name__)
+_logger = structlog.get_logger(__name__)
 
 
 async def call_llm(
@@ -99,8 +99,8 @@ def parse_json_response(content: str) -> dict:
         return json.loads(content)
     except (json.JSONDecodeError, TypeError) as exc:
         _logger.error(
-            "Failed to parse LLM response as JSON: %s | raw_text=%s",
-            exc,
-            content[:200],
+            "Failed to parse LLM response as JSON",
+            error=exc,
+            raw_text=content[:200],
         )
         raise LLMJSONError(f"Invalid JSON from LLM: {exc}") from exc

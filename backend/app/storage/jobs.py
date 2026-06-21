@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import logging
+import structlog
 from datetime import datetime, timezone
 
 from backend.app.schemas import GenerationJob, JobStatus
 from backend.app.storage.db import _ensure_utc, get_connection
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 INSERT_JOB_SQL = """
 INSERT INTO generation_jobs
@@ -40,9 +40,9 @@ async def create_job(job: GenerationJob) -> None:
                 _ensure_utc(job.updated_at).isoformat(),
             ))
             await db.commit()
-        logger.debug("Job created: %s", job.id)
+        logger.debug("Job created", job_id=job.id)
     except Exception:
-        logger.exception("Failed to create job %s", job.id)
+        logger.exception("Failed to create job", job_id=job.id)
         raise
 
 
@@ -65,7 +65,7 @@ async def get_job(job_id: str) -> GenerationJob | None:
             updated_at=datetime.fromisoformat(row["updated_at"]),
         )
     except Exception:
-        logger.exception("Failed to fetch job %s", job_id)
+        logger.exception("Failed to fetch job", job_id=job_id)
         raise
 
 
@@ -83,7 +83,7 @@ async def update_job_status(
                 error_message, error_message, now, job_id,
             ))
             await db.commit()
-        logger.debug("Job %s updated: status=%s", job_id, status.value)
+        logger.debug("Job updated", job_id=job_id, status=status.value)
     except Exception:
-        logger.exception("Failed to update job %s", job_id)
+        logger.exception("Failed to update job", job_id=job_id)
         raise
