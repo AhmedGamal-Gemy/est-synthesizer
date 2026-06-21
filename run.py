@@ -2,7 +2,8 @@
 """EST Synthesizer — Server entry-point.
 
 Reads ``HOST`` / ``PORT`` from ``.env`` (via ``backend.app.config``)
-and starts uvicorn with those values.
+and starts uvicorn with those values.  Logging is configured **before**
+uvicorn starts so that uvicorn's own loggers use structlog formatting.
 """
 
 import uvicorn
