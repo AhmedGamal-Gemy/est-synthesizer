@@ -1,10 +1,10 @@
-import axios from 'axios';
+import axios from "axios";
 
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL + '/api',
+  baseURL: "/api",
   timeout: 10000, // 10 seconds timeout for performance
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -15,7 +15,7 @@ client.interceptors.request.use(
     // if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // UX: Intercept responses to handle global errors
@@ -23,9 +23,9 @@ client.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle global errors (e.g., 401 Unauthorized, 500 Server errors)
-    console.error('API Error:', error.response?.data || error.message);
+    console.error("API Error:", error.response?.data || error.message);
     return Promise.reject(error);
-  }
+  },
 );
 
 export default client;
