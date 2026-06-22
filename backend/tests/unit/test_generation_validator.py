@@ -157,7 +157,7 @@ def test_exact_passage_match():
 
 
 def test_supporting_line_with_extra_whitespace():
-    """Whitespace differences mean no substring match."""
+    """Whitespace differences now pass after normalization."""
     q = _valid_question(supporting_line="  drawing workers  from  rural  ")
     valid, errors = validate_question(q, PASSAGE)
-    assert valid is False
+    assert valid is True

@@ -26,13 +26,17 @@ def validate_question(
             errors.append(f"Choice {choice.letter} text is empty")
 
     # ── Supporting-line groundedness ────────────────────────────
-    # ponytail: simple substring match; upgrade to fuzzy/embedding if needed
+    # ponytail: normalized substring match; upgrade to fuzzy/embedding if needed
     if not output.supporting_line:
         errors.append("supporting_line is empty")
-    elif output.supporting_line not in passage_text:
-        errors.append(
-            "supporting_line is not a substring of the passage text"
-        )
+    else:
+        # Normalize whitespace on both sides — LLMs often add/omit spaces
+        norm_line = " ".join(output.supporting_line.split())
+        norm_passage = " ".join(passage_text.split())
+        if norm_line not in norm_passage:
+            errors.append(
+                "supporting_line is not a substring of the passage text"
+            )
 
     # ── Correct-answer / choice cross-check ─────────────────────
     choice_letters = {c.letter for c in output.choices}

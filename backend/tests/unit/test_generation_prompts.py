@@ -137,11 +137,11 @@ def test_system_prompt_mentions_reasoning_field():
     assert "reasoning" in SYSTEM_PROMPT
 
 
-def test_system_prompt_contains_error_handling_empty_questions():
+def test_system_prompt_rejects_empty_questions():
     assert "empty" in SYSTEM_PROMPT
     assert "questions" in SYSTEM_PROMPT
-    # Check for explicit error handling instructions
-    assert "empty `questions` array" in SYSTEM_PROMPT
+    # Now tells the LLM NOT to fall back to empty array
+    assert "do NOT fall back to an empty array" in SYSTEM_PROMPT
 
 
 # ── WRITING_ADDON ───────────────────────────────────────────
