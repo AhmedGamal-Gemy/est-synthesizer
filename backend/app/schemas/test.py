@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .enums import Difficulty, ModuleType, SkillType
 from .question import GeneratedPassageBlock, GeneratedQuestion
@@ -91,6 +91,27 @@ class ModuleSlot(BaseModel):
     medium_count: int = Field(default=0, ge=0, description="Number of medium questions in this slot")
     hard_count: int = Field(default=0, ge=0, description="Number of hard questions in this slot")
 
+    @field_validator("skill_type", mode="before")
+    @classmethod
+    def _coerce_skill_type(cls, v: object) -> object:
+        """Coerce string skill_type on DB round-trip (model_dump stores strings)."""
+        if isinstance(v, str):
+            try:
+                return SkillType(v)
+            except ValueError:
+                return SkillType(v.lower().replace(" ", "_").replace("-", "_"))
+        return v
+
+    @field_validator("difficulty", mode="before")
+    @classmethod
+    def _coerce_difficulty(cls, v: object) -> object:
+        if isinstance(v, str):
+            try:
+                return Difficulty(v)
+            except ValueError:
+                return Difficulty(v.lower())
+        return v
+
     @model_validator(mode="after")
     def _validate_difficulty_counts(self) -> "ModuleSlot":
         if self.easy_count + self.medium_count + self.hard_count != self.question_count:
@@ -122,6 +143,16 @@ class ModuleConfig(BaseModel):
         default=False,
         description="True for Module 1 (writing) which uses longer answer choices",
     )
+
+    @field_validator("module_type", mode="before")
+    @classmethod
+    def _coerce_module_type(cls, v: object) -> object:
+        if isinstance(v, str):
+            try:
+                return ModuleType(v)
+            except ValueError:
+                return ModuleType(v.lower().replace(" ", "_").replace("-", "_"))
+        return v
 
     @property
     def question_count(self) -> int:
