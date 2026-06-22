@@ -57,6 +57,21 @@ est-synthesizer/
 │           ├── conftest.py         # Shared fixtures
 │           ├── unit/               # Pure unit tests (schemas, config, blueprint)
 │           └── integration/        # Storage + route integration tests
+├── frontend/                      # Vite + React + Tailwind UI
+│   ├── src/
+│   │   ├── App.jsx                # Main app component
+│   │   ├── api/                   # Backend API client (axios)
+│   │   ├── components/            # UI components
+│   │   └── main.jsx               # Entry point
+│   ├── index.html
+│   ├── vite.config.js             # Dev server on :3000, proxies /api → :8080
+│   ├── tailwind.config.js
+│   └── package.json
+├── scripts/                       # CLI scripts
+│   ├── bootstrap_library.py       # Bootstrap passage library from Gutenberg
+│   ├── qdrant_tool.py             # Qdrant CRUD and visualization tool
+│   └── bootstrap/
+│       └── stats.py               # Stats tracker for bootstrap runs
 ├── run.py                         # Uvicorn entry point
 ├── docker-compose.yml             # Qdrant service
 ├── pyproject.toml                 # Project config + deps
@@ -71,6 +86,8 @@ est-synthesizer/
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) package manager
 - Docker (for Qdrant vector DB)
+- Node.js 18+ (for frontend)
+- npm 9+ (ships with Node.js)
 
 ### Setup
 
@@ -92,7 +109,19 @@ docker compose up -d
 uv run python run.py
 ```
 
-The server starts on `http://127.0.0.1:8000` by default (configurable via `.env`).
+The server starts on `http://127.0.0.1:8000` by default (configurable via `.env`).  
+The frontend dev server proxies `/api` requests to the backend, so set matching ports.
+
+### Run the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend starts on `http://localhost:3000` and proxies `/api` calls to the backend at `http://localhost:8080`.  
+Make sure the backend is running first.
 
 ### Run Tests
 
@@ -240,6 +269,151 @@ asyncio.run(scrape())
 ### Logging
 
 All scraper modules use **structlog** with structured keyword arguments. Set `LOG_FORMAT=json` in `.env` for JSON log output suitable for log aggregators (ELK, Datadog, etc.).
+
+## Bootstrap Library
+
+The bootstrap library script downloads passages from Project Gutenberg, processes them into structured `Passage` objects, and upserts them into Qdrant for vector search. It's the bulk-fill mechanism for the passage database.
+
+### Pipeline
+
+```
+                        ┌──────────────────┐
+                        │  bootstrap_library.py  │
+                        └────────┬─────────┘
+                                 │
+              ┌──────────────────┼──────────────────┐
+              ▼                  ▼                   ▼
+   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
+   │ fetch_catalogue│  │ fetch_passage  │  │   Qdrant       │
+   │ (Gutendex API) │──│   text + clean │  │   upsert       │
+   └────────────────┘  └────────────────┘  └────────────────┘
+                              │
+                              ▼
+                       ┌──────────────┐
+                       │ chunk_text() │
+                       │ + process    │
+                       └──────────────┘
+```
+
+A visual diagram is at `docs/diagrams/bootstrap-pipeline.png`.
+
+### Run the Bootstrap
+
+Prerequisites: Qdrant must be running (`docker compose up -d`) and `.env` configured with `MISTRAL_API_KEY`.
+
+```bash
+# Process 50 books on science & history topics
+uv run python scripts/bootstrap_library.py --max-books 50 --topics "science,history"
+
+# Default: 200 books across science, history, philosophy, literature
+uv run python scripts/bootstrap_library.py
+
+# Dry-run (no Qdrant upsert): print stats only
+uv run python scripts/bootstrap_library.py --max-books 5 --dry-run
+```
+
+### Output
+
+The script prints a stats report on completion:
+
+```
+══════════════════════════════════════════════════
+  Bootstrap Library — Stats Report
+══════════════════════════════════════════════════
+  Total books processed : 50
+  Total passages        : 324
+
+  Breakdown by type:
+    long                 210
+    short                114
+
+  Breakdown by category (top 5):
+    science              142
+    history              98
+    philosophy           84
+
+  Average reading level : 9.2
+  Total errors          : 3
+══════════════════════════════════════════════════
+```
+
+Passages are upserted into the Qdrant collections configured in `.env` (`long_passages` / `short_passages` by default).
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--max-books` | `200` | Max books to fetch from catalogue |
+| `--topics` | `science,history,philosophy,literature` | Comma-separated search topics |
+| `--dry-run` | `false` | Skip Qdrant upsert, only print stats |
+
+## Qdrant Tool
+
+The `scripts/qdrant_tool.py` script lets you inspect, search, and manage passages in the Qdrant vector database.
+
+### Commands
+
+```bash
+# Show collections with point counts
+uv run python scripts/qdrant_tool.py collections
+
+# Aggregate stats per collection (type/category breakdown, reading level range)
+uv run python scripts/qdrant_tool.py stats
+
+# List passages in a collection
+uv run python scripts/qdrant_tool.py list --limit 20
+uv run python scripts/qdrant_tool.py list --collection short_passages --limit 10
+
+# Get passage details by full UUID
+uv run python scripts/qdrant_tool.py get <passage-uuid>
+
+# Semantic search across passages
+uv run python scripts/qdrant_tool.py search "climate change" --limit 5
+uv run python scripts/qdrant_tool.py search "scientific experiment" --collection long_passages --limit 3
+
+# Search with payload filters
+uv run python scripts/qdrant_tool.py search "history" --filters '{"passage_category": "narrative"}'
+
+# Delete a passage by UUID
+uv run python scripts/qdrant_tool.py delete <passage-uuid> --force
+```
+
+### Example Output
+
+```
+$ uv run python scripts/qdrant_tool.py stats
+
+  ==================================================
+  long_passages
+  ==================================================
+  Total passages       : 43
+  Average reading level: 10.8
+  Average word count   : 283
+  Reading level range  : 8.1 - 13.5
+
+  By type:
+    long                 43
+    short                0
+
+  By category:
+    narrative            14    ##############################
+    essay                11    #######################
+    scientific           9     ###################
+    history              5     ##########
+    argumentative        4     ########
+```
+
+```
+$ uv run python scripts/qdrant_tool.py search "scientific experiment" --limit 3
+
+  Search results for: 'scientific experiment'  |  long_passages
+
+  Score | ID           | Type | Category   | Words | Source
+  -----------------------------------------------------------------
+  0.642 | dd26a5e9-... | long | scientific | 286   | German Science Reader
+  0.628 | a11f06fa-... | long | essay      | 297   | Science in the Kitchen
+  0.619 | 88b2f8f6-... | long | scientific | 296   | A History of Magic...
+```
 
 ## Status
 
