@@ -62,10 +62,12 @@ class LLMQueue:
             time_period=1.0,
         )
         self._model: str = settings.LLM_MODEL
+        proxy_api_key = settings.LITELLM_MASTER_KEY or settings.MISTRAL_API_KEY
+        model = f"litellm_proxy/{settings.LITELLM_MODEL}" if settings.LITELLM_MODEL else self._model
         self._config: LLMConfig = LLMConfig(
-            model_name=self._model,
+            model_name=model,
             proxy_base_url=settings.LITELLM_PROXY_URL,
-            proxy_api_key=settings.MISTRAL_API_KEY,
+            proxy_api_key=proxy_api_key,
             temperature=settings.LLM_TEMPERATURE,
             max_tokens=settings.LLM_MAX_TOKENS,
         )
@@ -131,8 +133,9 @@ class LLMQueue:
         """
         await self._limiter.acquire(1)
 
+        api_base = self._config.proxy_base_url or None
         raw_content = await call_llm(
-            model=self._model,
+            model=self._config.model_name,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -140,7 +143,7 @@ class LLMQueue:
             temperature=self._config.temperature,
             max_tokens=self._config.max_tokens,
             api_key=self._config.proxy_api_key,
-            api_base=self._config.proxy_base_url,
+            api_base=api_base,
         )
 
         return parse_json_response(raw_content)

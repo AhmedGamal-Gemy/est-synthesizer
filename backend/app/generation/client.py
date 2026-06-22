@@ -14,13 +14,13 @@ Exports:
 """
 
 from __future__ import annotations
-
 import json
 import structlog
 
 import litellm
 
 from backend.app.generation.exceptions import LLMAPIError, LLMJSONError
+
 
 _logger = structlog.get_logger(__name__)
 
@@ -33,33 +33,7 @@ async def call_llm(
     api_key: str,
     api_base: str,
 ) -> str:
-    """Call the LLM via LiteLLM and return the raw response text.
-
-    Parameters
-    ----------
-    model : str
-        LiteLLM model identifier (e.g. ``"mistral/mistral-small-latest"``).
-    messages : list
-        Chat messages as ``[{"role": ..., "content": ...}, ...]``.
-    temperature : float
-        LLM temperature (0.0–2.0).
-    max_tokens : int
-        Maximum output tokens.
-    api_key : str
-        API key for the LLM provider or LiteLLM proxy.
-    api_base : str
-        Base URL for the LiteLLM proxy.
-
-    Returns
-    -------
-    str
-        The raw response content string.
-
-    Raises
-    ------
-    LLMAPIError
-        If the response is empty or None.
-    """
+    """Call the LLM via LiteLLM and return the raw response text."""
     response = await litellm.acompletion(
         model=model,
         messages=messages,
