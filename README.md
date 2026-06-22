@@ -149,7 +149,8 @@ Quick reference for the scripts under `scripts/`. They all run with `uv run pyth
 | Script | What it does | Common flags |
 |---|---|---|
 | `bootstrap_library.py` | Pulls books from Gutendex, processes them into `Passage` objects, upserts into Qdrant. | `--max-books 50` `--topics "science,history"` `--dry-run` |
-| `test_real_call.py` | End-to-end generate one test: retrieves passages → calls LLM through the proxy → assembles → saves the inventory record. | none (uses default blueprint) |
+| `test_real_call.py` | Dev-time end-to-end smoke test (hardcoded default blueprint, prints sample questions). Use `generate_test.py` for the real CLI. | none |
+| `generate_test.py` | Production CLI: takes a blueprint id, drives the full pipeline (loop → assemble → render PDFs), saves the test to inventory. | `--blueprint <id>` `--no-pdf` `--log-level <LEVEL>` |
 | `qdrant_tool.py` | Inspect and manage Qdrant collections: list, search, get, delete passages. | `collections` `stats` `list` `get <id>` `search "..."` `delete <id>` |
 
 Examples:
@@ -164,6 +165,10 @@ uv run python scripts/bootstrap_library.py --max-books 5 --dry-run
 # Generate one printable test end-to-end (~3-5 min; talks to the LLM through the proxy)
 $env:LOG_LEVEL="ERROR"  # quieter output (PowerShell)
 uv run python scripts/test_real_call.py
+
+# Or use the real CLI — pick a blueprint, render PDFs, save to inventory
+uv run python scripts/generate_test.py --blueprint default_blueprint_v1
+uv run python scripts/generate_test.py --blueprint harder_blueprint_v1 --no-pdf  # skip PDFs
 
 # Inspect Qdrant
 uv run python scripts/qdrant_tool.py collections
