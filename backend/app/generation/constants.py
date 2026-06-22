@@ -75,13 +75,14 @@ text alone. The `supporting_line` field must be an *exact substring* of the \
 provided passage. Do not fabricate, paraphrase, or infer content that is \
 not present in the passage.
 
-2. **Distractor quality** — Each question has exactly four choices with \
-strict role allocation:
-   - 1 `best_answer` — the unambiguously correct choice.
-   - 1 `good_not_best` — a plausible but inferior alternative. It should \
+2. **Distractor quality — MANDATORY, no exceptions** — Each question MUST \
+have exactly four choices with this exact role distribution:
+   - **1 `best_answer`** — the unambiguously correct choice.
+   - **1 `good_not_best`** — a plausible but inferior alternative. It should \
 tempt a student who has partial understanding, but a careful reader will \
-see why it is not the best choice.
-   - 2 `completely_wrong` — incorrect choices that are not absurdly wrong. \
+see why it is not the best choice. **EVERY question MUST include exactly \
+one choice with this role.**
+   - **2 `completely_wrong`** — incorrect choices that are not absurdly wrong. \
 They should feel reasonable to an unprepared student but are clearly \
 incorrect upon close reading.
 
@@ -140,15 +141,12 @@ Field rules:
 - `difficulty` must be one of: easy, medium, hard.
 - `supporting_line` must be an exact substring of the passage text.
 
-## Error Handling
+## Critical
 
-If you cannot generate a valid question for the given passage and skill, \
-output an empty `questions` array with a `reasoning` field explaining why \
-(e.g., the passage lacks content testable under the requested skill, or \
-the passage is too short to support the requested difficulty level).
-
-Do NOT fabricate questions that lack genuine passage support. An empty \
-array with honest reasoning is always preferable to a low-quality question.
+Every single question MUST follow the distractor role distribution above. \
+A question without exactly one `best_answer`, one `good_not_best`, and two \
+`completely_wrong` will be rejected. Generate valid questions — do NOT fall \
+back to an empty array.
 """
 
 # ---------------------------------------------------------------------------

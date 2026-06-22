@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     MISTRAL_RATE_LIMIT: float = 1.0
     # Optional LiteLLM proxy URL for custom routing / caching.
     LITELLM_PROXY_URL: str = "http://localhost:4000"
+    # Master key for LiteLLM proxy auth (required when using the proxy).
+    LITELLM_MASTER_KEY: str = ""
+    # Model alias used when calling through the proxy (e.g. "mistral-small").
+    LITELLM_MODEL: str = ""
 
     # ═══════════════════════════════════════════════════════════════════════════
     #  Qdrant (Vector Database)

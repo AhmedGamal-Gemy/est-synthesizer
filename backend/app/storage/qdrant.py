@@ -54,7 +54,7 @@ def _get_embedding_model() -> SentenceTransformer:
     if _embedding_model is None:
         logger.info("Loading embedding model", model=EMBEDDING_MODEL_NAME)
         _embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        logger.info("Embedding model loaded", dim=_embedding_model.get_sentence_embedding_dimension())
+        logger.info("Embedding model loaded", dim=_embedding_model.get_embedding_dimension())
     return _embedding_model
 
 # MMR defaults (used when use_mmr=True but no explicit values given)
