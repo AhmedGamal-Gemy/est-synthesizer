@@ -29,6 +29,8 @@ def _mock_settings():
     s.MISTRAL_API_KEY = "test-key"
     s.MISTRAL_RATE_LIMIT = 5.0
     s.LITELLM_PROXY_URL = "http://localhost:4000"
+    s.LITELLM_MASTER_KEY = ""
+    s.LITELLM_MODEL = ""
     s.LLM_MODEL = "mistral/mistral-small-latest"
     s.LLM_TEMPERATURE = 0.3
     s.LLM_MAX_TOKENS = 4096
