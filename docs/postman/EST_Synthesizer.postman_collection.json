@@ -1,0 +1,242 @@
+{
+  "info": {
+    "name": "EST Synthesizer",
+    "description": "Hand-test the EST Synthesizer API. Start the server with `uv run python run.py` (default: http://127.0.0.1:8000). This collection covers the blueprint + scraper APIs that are already wired in. For the full generation → assembly → PDF pipeline, the CLI script `scripts/test_real_call.py` is the entry point today (the HTTP wrapper is T16, not built yet). See the README \"CLI Scripts\" section for the full list of commands.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Config",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Smoke test — should return 200 OK if the server is up."
+          }
+        },
+        {
+          "name": "Get server config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "config"]
+            },
+            "description": "Returns the host/port the server is bound to."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Blueprints",
+      "item": [
+        {
+          "name": "List all blueprints",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/blueprints",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blueprints"]
+            },
+            "description": "Returns every blueprint in the inventory (built-in + custom). DEFAULT and HARDER are seeded on first startup."
+          }
+        },
+        {
+          "name": "Get a blueprint by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/blueprints/__BP_ID__",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blueprints", "__BP_ID__"]
+            },
+            "description": "Replace __BP_ID__ with the `id` from the list endpoint. The built-in blueprints are `default` and `harder`."
+          }
+        },
+        {
+          "name": "Create a custom blueprint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Custom Blueprint\",\n  \"description\": \"Copied from DEFAULT with 10% more hard questions.\",\n  \"blueprint_json\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/blueprints",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blueprints"]
+            },
+            "description": "Creates a custom blueprint. `blueprint_json` is the full TestBlueprint payload — easiest path is to GET an existing blueprint, copy its `blueprint_json`, tweak it, and POST here."
+          }
+        },
+        {
+          "name": "Update a blueprint",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Custom Blueprint (renamed)\",\n  \"description\": \"Updated description.\",\n  \"blueprint_json\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/blueprints/__BP_ID__",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blueprints", "__BP_ID__"]
+            },
+            "description": "Partial update — only the fields you send are touched."
+          }
+        },
+        {
+          "name": "Delete a blueprint",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/blueprints/__BP_ID__",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blueprints", "__BP_ID__"]
+            },
+            "description": "Returns 204 No Content. Built-in blueprints (DEFAULT, HARDER) cannot be deleted; duplicate them first."
+          }
+        },
+        {
+          "name": "Duplicate a blueprint",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/blueprints/__BP_ID__/duplicate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "blueprints", "__BP_ID__", "duplicate"]
+            },
+            "description": "Use this to clone DEFAULT or HARDER before customising — built-ins are read-only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scraper",
+      "item": [
+        {
+          "name": "Fetch Gutendex catalogue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/scraper/catalogue?topics=science,history&max_books=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scraper", "catalogue"],
+              "query": [
+                {"key": "topics", "value": "science,history", "description": "Comma-separated search topics. Optional."},
+                {"key": "max_books", "value": "5", "description": "Max books to return. Default 200."}
+              ]
+            },
+            "description": "Browse the Project Gutenberg catalogue filtered by topic. No downloads happen here — just the list of candidate books."
+          }
+        },
+        {
+          "name": "Scrape one book by Gutendex id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/scraper/book/84",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scraper", "book", "84"]
+            },
+            "description": "Frankenstein (Gutendex id 84) is a known-good target. Downloads the text, strips boilerplate, chunks it, and processes each chunk into a Passage object. Use `scripts/qdrant_tool.py search ...` afterwards to see the new passages."
+          }
+        },
+        {
+          "name": "Run full scrape pipeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/scraper/pipeline?max_books=3&topics=science",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "scraper", "pipeline"],
+              "query": [
+                {"key": "max_books", "value": "3", "description": "How many books to download and process in this run."},
+                {"key": "topics", "value": "science", "description": "Comma-separated search topics. Optional."}
+              ]
+            },
+            "description": "End-to-end: catalogue → download → process → upsert into Qdrant. The same flow as `scripts/bootstrap_library.py` but exposed over HTTP. Each book takes 5-15s, so keep max_books small when testing by hand."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Generation Pipeline (T16 — not built yet)",
+      "item": [
+        {
+          "name": "Trigger test generation (placeholder)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blueprint_id\": \"default\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "generate"]
+            },
+            "description": "NOT IMPLEMENTED YET. Today, run `uv run python scripts/test_real_call.py` to drive the same pipeline manually. The HTTP wrapper (T16) is on the roadmap. Until then this request will 404 — that's expected."
+          }
+        }
+      ]
+    }
+  ]
+}

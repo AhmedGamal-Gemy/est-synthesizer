@@ -49,10 +49,10 @@ est-synthesizer/
 │       │   └── scraper.py         # 3 scraper API endpoints
 │       ├── static/
 │       │   └── blueprint-editor.html  # Single-page blueprint editor UI
-│       ├── generation/            # LLM pipeline (stub)
+│       ├── generation/            # LLM pipeline (T11 loop + T12 assembler, PR #13)
 │       ├── logging_config.py      # structlog production logging configuration
 │       ├── scraper/               # Passage scraper (Gutendex API + processing)
-│       └── pdf/                   # PDF renderer (stub)
+│       └── pdf/                   # PDF renderer (Jinja2 + WeasyPrint, T14)
 │       └── tests/                 # Test suite
 │           ├── conftest.py         # Shared fixtures
 │           ├── unit/               # Pure unit tests (schemas, config, blueprint)
@@ -140,6 +140,96 @@ uv run pytest -v
 
 # Specific module
 uv run pytest backend/tests/unit/test_schemas_question.py
+```
+
+## CLI Scripts
+
+Quick reference for the scripts under `scripts/`. They all run with `uv run python scripts/<name>.py`.
+
+| Script | What it does | Common flags |
+|---|---|---|
+| `bootstrap_library.py` | Pulls books from Gutendex, processes them into `Passage` objects, upserts into Qdrant. | `--max-books 50` `--topics "science,history"` `--dry-run` |
+| `test_real_call.py` | End-to-end generate one test: retrieves passages → calls LLM through the proxy → assembles → saves the inventory record. | none (uses default blueprint) |
+| `qdrant_tool.py` | Inspect and manage Qdrant collections: list, search, get, delete passages. | `collections` `stats` `list` `get <id>` `search "..."` `delete <id>` |
+
+Examples:
+
+```bash
+# Bootstrap 50 science + history books into Qdrant (writes a stats report on completion)
+uv run python scripts/bootstrap_library.py --max-books 50 --topics "science,history"
+
+# Dry-run: same as above but no Qdrant writes — just stats
+uv run python scripts/bootstrap_library.py --max-books 5 --dry-run
+
+# Generate one printable test end-to-end (~3-5 min; talks to the LLM through the proxy)
+$env:LOG_LEVEL="ERROR"  # quieter output (PowerShell)
+uv run python scripts/test_real_call.py
+
+# Inspect Qdrant
+uv run python scripts/qdrant_tool.py collections
+uv run python scripts/qdrant_tool.py stats
+uv run python scripts/qdrant_tool.py search "scientific experiment" --limit 5
+uv run python scripts/qdrant_tool.py list --limit 20
+uv run python scripts/qdrant_tool.py get <passage-uuid>
+uv run python scripts/qdrant_tool.py delete <passage-uuid> --force
+```
+
+For full flag details and example output, see the dedicated sections below (Bootstrap Library, Qdrant Tool).
+
+## Generating a Test (End-to-End)
+
+The full pipeline: bootstrap passages → run generation loop → assemble → render PDFs.
+
+### One-time setup
+
+```bash
+# 1. Start Qdrant (vector DB)
+docker compose up -d
+
+# 2. Bootstrap the passage library from Project Gutenberg
+uv run python scripts/bootstrap_library.py --max-books 50 --topics "science,history"
+# This fills Qdrant with ~50-300 passages. Use --dry-run to preview without upserting.
+```
+
+### Option A — manual E2E run (script)
+
+```bash
+# Set logging to ERROR to keep the console clean of progress noise
+$env:LOG_LEVEL="ERROR"  # PowerShell
+# export LOG_LEVEL=ERROR  # bash
+
+uv run python scripts/test_real_call.py
+# Runs 25 slots × 1 req/s through the LLM (Mistral Small via the LiteLLM proxy).
+# ~3-5 minutes, ends with a summary like:
+#   Generated 56 question records
+#   Assembled test: 1d015dddb31b - 56 questions, 3 modules
+#   Saved test to inventory. All good!
+```
+
+Output PDFs land in `data/generated/test_<id>_student.pdf` and `..._teacher.pdf` (renderer is the T14 PDF module).
+
+### Option B — via the API (T16, not built yet)
+
+```bash
+# Server
+uv run python run.py        # http://127.0.0.1:8000
+
+# In another terminal, start the frontend
+cd frontend && npm run dev  # http://localhost:3000
+```
+
+### LiteLLM proxy (optional but recommended)
+
+The generation loop calls the LLM through a LiteLLM proxy on `localhost:4000` so the model and rate limit can be swapped without code changes. `litellm_proxy.yaml` at the repo root configures the proxy with model aliases `mistral-small` and `mistral-large`. Point `LITELLM_PROXY_URL`, `LITELLM_MASTER_KEY`, and `LITELLM_MODEL` in your `.env` at the running proxy.
+
+If the proxy is not running, the loop falls back to calling Mistral directly with `MISTRAL_API_KEY`.
+
+### Qdrant inspection
+
+```bash
+uv run python scripts/qdrant_tool.py collections
+uv run python scripts/qdrant_tool.py stats
+uv run python scripts/qdrant_tool.py search "scientific experiment" --limit 5
 ```
 
 ## API Endpoints
@@ -423,7 +513,7 @@ $ uv run python scripts/qdrant_tool.py search "scientific experiment" --limit 3
 | SQLite Storage | Done |
 | Blueprint Config + UI | Done |
 | Qdrant Vector Store | Done |
-| Test Suite (507 tests) | Done |
+| Test Suite (477 tests + 2 skipped on GTK-less Windows) | Done |
 | Passage Scraper | Done |
-| LLM Generation Pipeline | Stub |
-| PDF Renderer | Stub |
+| LLM Generation Pipeline | Done (PR #13) |
+| PDF Renderer (student + teacher) | Done (PR #14) |
