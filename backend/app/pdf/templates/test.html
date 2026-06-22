@@ -1,1 +1,59 @@
-<!-- test template -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EST Test {{ test.id }}</title>
+</head>
+<body class="{{ audience }}">
+
+  <header class="test-header">
+    <h1>EST Practice Test</h1>
+    <p class="meta">Test ID: {{ test.id }} | {{ test.total_questions }} questions</p>
+  </header>
+
+  {% for module in test.modules %}
+    <section class="module">
+      <h2 class="module-header">
+        Module {{ module.module_number }} — {{ module.module_type.value | replace('_', ' ') | title }}
+        <span class="module-count">({{ module.questions | length }} questions)</span>
+      </h2>
+
+      {% for pb in module.passages %}
+        {% set passage = passage_text.get(pb.passage_id, "") %}
+        <article class="passage-block">
+          <div class="passage">
+            {% if passage %}
+              <p>{{ passage }}</p>
+            {% else %}
+              <p class="missing-passage">[Passage text unavailable for id {{ pb.passage_id }}]</p>
+            {% endif %}
+          </div>
+
+          <ol class="questions" start="{{ pb.questions[0].question_number }}">
+            {% for q in pb.questions %}
+              <li class="question">
+                <p class="question-text">{{ q.question_text }}</p>
+                <ol class="choices" type="A">
+                  {% for choice in q.choices %}
+                    <li class="choice" data-role="{{ choice.distractor_role.value }}">
+                      {{ choice.text }}
+                      {% if audience == "teacher" and choice.letter == q.correct_answer %}
+                        <span class="answer-mark">&#10003;</span>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ol>
+
+                {% if audience == "teacher" %}
+                  <p class="explanation"><strong>Answer:</strong> {{ q.correct_answer }} — {{ q.explanation }}</p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </article>
+      {% endfor %}
+    </section>
+  {% endfor %}
+
+</body>
+</html>

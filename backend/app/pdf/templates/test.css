@@ -1,1 +1,131 @@
-/* test css */
+/* EST Test stylesheet — two-column layout, print-friendly */
+
+@page {
+  size: Letter;
+  margin: 1.5cm 1.5cm 1.5cm 1.5cm;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  font-size: 10pt;
+  line-height: 1.4;
+  color: #111;
+  margin: 0;
+  padding: 0;
+}
+
+.test-header {
+  text-align: center;
+  margin-bottom: 1.5em;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5em;
+}
+
+.test-header h1 {
+  font-size: 18pt;
+  margin: 0 0 0.25em 0;
+}
+
+.test-header .meta {
+  font-size: 9pt;
+  color: #555;
+  margin: 0;
+}
+
+.module {
+  page-break-before: always;
+}
+
+.module-header {
+  font-size: 14pt;
+  margin: 0 0 1em 0;
+  border-bottom: 2px solid #000;
+  padding-bottom: 0.25em;
+}
+
+.module-count {
+  font-size: 10pt;
+  color: #666;
+  font-weight: normal;
+}
+
+.passage-block {
+  display: flex;
+  flex-direction: row;
+  gap: 1.5em;
+  margin-bottom: 2em;
+  align-items: flex-start;
+}
+
+.passage {
+  flex: 0 0 45%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10pt;
+  line-height: 1.5;
+  background: #fafafa;
+  padding: 0.75em 1em;
+  border-left: 3px solid #888;
+}
+
+.passage p {
+  margin: 0 0 0.75em 0;
+}
+
+.passage .missing-passage {
+  color: #999;
+  font-style: italic;
+}
+
+.questions {
+  flex: 1 1 auto;
+  padding-left: 1.5em;
+  margin: 0;
+}
+
+.question {
+  margin-bottom: 1.25em;
+  page-break-inside: avoid;
+}
+
+.question-text {
+  margin: 0 0 0.5em 0;
+  font-weight: 500;
+}
+
+.choices {
+  list-style-type: upper-alpha;
+  padding-left: 1.5em;
+  margin: 0.25em 0 0 0;
+}
+
+.choice {
+  margin-bottom: 0.2em;
+  padding: 0.1em 0.3em;
+}
+
+.answer-mark {
+  color: #1a7a1a;
+  font-weight: bold;
+  margin-left: 0.5em;
+}
+
+.explanation {
+  margin: 0.5em 0 0 0;
+  padding: 0.4em 0.6em;
+  background: #f0f7f0;
+  border-left: 3px solid #1a7a1a;
+  font-size: 9pt;
+  color: #333;
+}
+
+/* Hide correct-answer marks and explanations in student mode */
+body.student .answer-mark,
+body.student .explanation {
+  display: none;
+}
+
+/* In teacher mode, highlight the correct choice */
+body.teacher .choice[data-role="best_answer"] {
+  background: #e6f4e6;
+  border-left: 3px solid #1a7a1a;
+}
