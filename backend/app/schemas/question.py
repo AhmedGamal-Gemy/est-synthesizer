@@ -24,6 +24,17 @@ class AnswerChoice(BaseModel):
         ..., description="Pedagogical role of this choice"
     )
 
+    @field_validator("distractor_role", mode="before")
+    @classmethod
+    def coerce_distractor_role(cls, v: object) -> object:
+        """Coerce LLM string output to DistractorRole enum before strict validation."""
+        if isinstance(v, str):
+            try:
+                return DistractorRole(v)
+            except ValueError:
+                pass
+        return v
+
 
 class GeneratedQuestion(BaseModel):
     """A single question produced by the generation pipeline."""
@@ -111,6 +122,38 @@ class LLMQuestionOutput(BaseModel):
     )
     skill_type: SkillType = Field(..., description="Skill being assessed")
     difficulty: Difficulty = Field(..., description="Relative difficulty")
+
+    @field_validator("skill_type", mode="before")
+    @classmethod
+    def coerce_skill_type(cls, v: object) -> object:
+        """Coerce LLM string to SkillType enum before strict validation.
+
+        Handles both exact enum values (``information_and_ideas``) and
+        human-readable forms from the prompt (``Information and Ideas``).
+        """
+        if isinstance(v, str):
+            try:
+                return SkillType(v)
+            except ValueError:
+                pass
+            # Try normalized (lowercase, spaces → underscores)
+            normalized = v.lower().replace(" ", "_").replace("-", "_")
+            try:
+                return SkillType(normalized)
+            except ValueError:
+                pass
+        return v
+
+    @field_validator("difficulty", mode="before")
+    @classmethod
+    def coerce_difficulty(cls, v: object) -> object:
+        """Coerce LLM string to Difficulty enum before strict validation."""
+        if isinstance(v, str):
+            try:
+                return Difficulty(v)
+            except ValueError:
+                pass
+        return v
 
     @field_validator("choices")
     @classmethod
