@@ -156,12 +156,15 @@ def test_writing_addon_contains_no_change():
 
 
 def test_writing_addon_mentions_best_answer_role_for_no_change():
-    assert "best_answer" in WRITING_ADDON
+    """NO CHANGE is best_answer when the original is already correct."""
+    # The role can be mentioned by name or by its semantic description
+    # (which is what the v2 WRITING_ADDON does after T17 follow-up).
+    assert "best_answer" in WRITING_ADDON or "is correct when the original" in WRITING_ADDON
 
 
 def test_writing_addon_mentions_full_sentence_closely_worded_style():
-    assert "full sentences" in WRITING_ADDON
-    assert "closely worded" in WRITING_ADDON
+    """Choices should be minimal variants of the same sentence, not full rewrites."""
+    assert "full sentences" in WRITING_ADDON or "NOT a full rewrite" in WRITING_ADDON
 
 
 # ── SKILL_TYPE_DESCRIPTIONS ────────────────────────────────
@@ -456,3 +459,225 @@ def test_build_user_prompt_different_already_generated_counts():
     assert "Questions Already Generated for This Passage: 0" in result_zero
     assert "Questions Already Generated for This Passage: 5" in result_five
     assert result_zero != result_five
+
+
+# ── Few-shot examples default (T17) ────────────────────────
+
+
+def test_build_user_prompt_defaults_few_shot_when_none():
+    """When few_shot_examples is None, the curated default examples are used."""
+    from backend.app.generation.few_shot import DEFAULT_FEW_SHOT_EXAMPLES
+
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.INFORMATION_AND_IDEAS,
+        difficulty=Difficulty.MEDIUM, question_count=1,
+        easy_count=0, medium_count=1, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(),
+        slot_config=slot,
+        module_type=ModuleType.READING_SHORT,
+    )
+    assert "<FEW_SHOT_EXAMPLES>" in result
+    # At least one of the default examples should appear
+    assert "Question:" in result
+    # And the curated example text should be present
+    assert any(ex["question_text"] in result for ex in DEFAULT_FEW_SHOT_EXAMPLES)
+
+
+def test_build_user_prompt_explicit_empty_list_skips_few_shot():
+    """An explicit empty list suppresses the few-shot block (escape hatch)."""
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.INFORMATION_AND_IDEAS,
+        difficulty=Difficulty.MEDIUM, question_count=1,
+        easy_count=0, medium_count=1, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(),
+        few_shot_examples=[],
+        slot_config=slot,
+        module_type=ModuleType.READING_SHORT,
+    )
+    assert "<FEW_SHOT_EXAMPLES>" not in result
+
+
+def test_build_user_prompt_custom_few_shot_overrides_default():
+    """A non-empty list overrides the default."""
+    custom = [{
+        "question_text": "Q-CUSTOM",
+        "choices": [
+            {"letter": "A", "text": "x", "distractor_role": "best_answer"},
+            {"letter": "B", "text": "y", "distractor_role": "good_not_best"},
+            {"letter": "C", "text": "z", "distractor_role": "completely_wrong"},
+            {"letter": "D", "text": "w", "distractor_role": "completely_wrong"},
+        ],
+        "correct_answer": "A", "explanation": "e",
+        "supporting_line": "s", "skill_type": "information_and_ideas",
+        "difficulty": "easy",
+    }]
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.INFORMATION_AND_IDEAS,
+        difficulty=Difficulty.MEDIUM, question_count=1,
+        easy_count=0, medium_count=1, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(),
+        few_shot_examples=custom,
+        slot_config=slot,
+        module_type=ModuleType.READING_SHORT,
+    )
+    assert "Q-CUSTOM" in result
+
+
+# ── Writing-module UNDERLINED_PORTIONS (T17) ────────────────
+
+
+_WRITING_PASSAGE_TEXT = (
+    "The Industrial Revolution marked a turning point in human history. "
+    "Factories proliferated across England, drawing workers from rural areas into cities. "
+    "This shift fundamentally altered social structures and economic relationships. "
+    "The rise of steam power enabled mass production on an unprecedented scale."
+)
+
+
+def test_build_user_prompt_writing_module_includes_underlined_portions():
+    """Writing-module prompts include an <UNDERLINED_PORTIONS> block."""
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.SENTENCE_FORMATION,
+        difficulty=Difficulty.EASY, question_count=1,
+        easy_count=1, medium_count=0, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(text=_WRITING_PASSAGE_TEXT),
+        few_shot_examples=[],
+        slot_config=slot,
+        module_type=ModuleType.WRITING,
+    )
+    assert "<UNDERLINED_PORTIONS>" in result
+    assert "[1]" in result
+    assert "[2]" in result
+
+
+def test_build_user_prompt_reading_module_omits_underlined_portions():
+    """Reading-module prompts must NOT include the UNDERLINED_PORTIONS block."""
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.INFORMATION_AND_IDEAS,
+        difficulty=Difficulty.MEDIUM, question_count=1,
+        easy_count=0, medium_count=1, hard_count=0,
+    )
+    for mod in (ModuleType.READING_LONG, ModuleType.READING_SHORT):
+        result = build_user_prompt(
+            passage=_valid_passage(text=_WRITING_PASSAGE_TEXT),
+            few_shot_examples=[],
+            slot_config=slot,
+            module_type=mod,
+        )
+        assert "<UNDERLINED_PORTIONS>" not in result, f"Should not appear in {mod.value}"
+
+
+def test_build_user_prompt_underlined_portions_are_passage_sentences():
+    """The [1]/[2] portions must be exact substrings of the passage text."""
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.SENTENCE_FORMATION,
+        difficulty=Difficulty.EASY, question_count=1,
+        easy_count=1, medium_count=0, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(text=_WRITING_PASSAGE_TEXT),
+        few_shot_examples=[],
+        slot_config=slot,
+        module_type=ModuleType.WRITING,
+    )
+    # At least one of the sentences from the passage should appear inside the
+    # UNDERLINED_PORTIONS block. We don't pin to [1] vs [2] because the picker
+    # just takes the first 2 in length-preferred order.
+    assert "Factories proliferated across England" in result
+    assert "The rise of steam power" in result
+
+
+def test_build_user_prompt_passage_text_unmodified_for_writing():
+    """The <PASSAGE> block must contain the original text so the
+    supporting_line substring check still works without a denoising pass."""
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.SENTENCE_FORMATION,
+        difficulty=Difficulty.EASY, question_count=1,
+        easy_count=1, medium_count=0, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(text=_WRITING_PASSAGE_TEXT),
+        few_shot_examples=[],
+        slot_config=slot,
+        module_type=ModuleType.WRITING,
+    )
+    # Pull out the <PASSAGE>...</PASSAGE> block
+    start = result.find("<PASSAGE>")
+    end = result.find("</PASSAGE>")
+    passage_block = result[start:end]
+    # Original text must be present unmodified
+    assert _WRITING_PASSAGE_TEXT in passage_block
+    # The [1]/[2] markers must NOT be inside the PASSAGE block
+    assert "[1]" not in passage_block
+    assert "[2]" not in passage_block
+
+
+# ── Literal NO CHANGE example (T17 follow-up) ───────────────
+
+
+def test_literal_no_change_example_is_in_default_set():
+    """The default few-shot set must include the literal NO CHANGE example."""
+    from backend.app.generation.few_shot import (
+        DEFAULT_FEW_SHOT_EXAMPLES, LITERAL_NO_CHANGE_EXAMPLE,
+    )
+    assert LITERAL_NO_CHANGE_EXAMPLE in DEFAULT_FEW_SHOT_EXAMPLES
+
+
+def test_literal_no_change_example_has_no_change_literally():
+    """Choice A must be the literal string 'NO CHANGE' (not a paraphrase)."""
+    from backend.app.generation.few_shot import LITERAL_NO_CHANGE_EXAMPLE
+
+    choice_a = LITERAL_NO_CHANGE_EXAMPLE["choices"][0]
+    assert choice_a["letter"] == "A"
+    assert choice_a["text"] == "NO CHANGE"
+    assert choice_a["distractor_role"] == "best_answer"
+
+
+def test_literal_no_change_example_other_choices_are_minimal_variants():
+    """B/C/D should be the same sentence with one specific fix each
+    (not full rewrites)."""
+    from backend.app.generation.few_shot import LITERAL_NO_CHANGE_EXAMPLE
+
+    for ch in LITERAL_NO_CHANGE_EXAMPLE["choices"][1:]:
+        # All variants should contain the anchor word "data" (the
+        # subject of the example sentence). This catches a full
+        # rewrite where the model went off-topic.
+        assert "data" in ch["text"].lower(), f"Choice {ch['letter']} lost the subject"
+        # None of B/C/D should be the literal "NO CHANGE" string
+        assert ch["text"] != "NO CHANGE"
+
+
+def test_default_few_shot_appears_in_writing_module_prompt():
+    """When a writing-module prompt is built, the LITERAL NO CHANGE
+    example text should appear in the <FEW_SHOT_EXAMPLES> block."""
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.SENTENCE_FORMATION,
+        difficulty=Difficulty.MEDIUM, question_count=1,
+        easy_count=0, medium_count=1, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(text=_WRITING_PASSAGE_TEXT),
+        slot_config=slot,
+        module_type=ModuleType.WRITING,
+        # few_shot_examples=None → curated defaults → LITERAL_NO_CHANGE_EXAMPLE
+    )
+    # The anchor phrase from the LITERAL_NO_CHANGE_EXAMPLE
+    assert "peer-reviewed journal" in result
+
+
+def test_writing_addon_emphasizes_literal_no_change():
+    """The WRITING_ADDON must insist on the literal text 'NO CHANGE'."""
+    from backend.app.generation.constants import WRITING_ADDON
+
+    assert "NO CHANGE" in WRITING_ADDON
+    # The LITERAL emphasis is key — we found that without it, the LLM
+    # treated NO CHANGE as a generic label rather than a literal option.
+    assert "LITERAL" in WRITING_ADDON or "literal" in WRITING_ADDON.lower()

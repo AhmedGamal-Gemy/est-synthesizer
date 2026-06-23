@@ -35,5 +35,8 @@ data/
 # User reference docs (not codebase)
 full_plan.md
 
+# Samples (teacher-shared material, not redistributed)
+docs/est-samples/*.pdf
+
 # Node (if ever added)
 node_modules/

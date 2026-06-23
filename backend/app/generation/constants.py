@@ -156,17 +156,25 @@ back to an empty array.
 WRITING_ADDON: str = """\
 ## Writing-Module Specific Instructions
 
-- Always include "NO CHANGE" as one of the four answer choices for \
-writing/editing questions. This represents the original text as written.
-- Answer choices for conventions/editing questions should be full sentences, \
-closely worded, with only punctuation or single-word differences between options.
+- The prompt includes an `<UNDERLINED_PORTIONS>` block listing one or more \
+numbered sentences (e.g. [1], [2]) that the question should target. Each \
+generated question must ask about ONE of these numbered portions. \
+The `<PASSAGE>` block above does NOT include the [1]/[2] markers; quote the \
+underlying sentence from the passage as your `supporting_line`.
+- ALWAYS include the literal string "NO CHANGE" as one of the four answer \
+choices for writing/editing questions. This is non-negotiable: the LITERAL \
+TEXT "NO CHANGE" (not a paraphrase, not a description) must appear as one of \
+the choices. Look at the few-shot example for the exact format.
+- Place "NO CHANGE" as choice A.
+- The other three choices should be the same sentence (the one from the \
+underlined portion) with one specific grammar/punctuation/usage fix each. \
+Differences should be minimal — one word, one comma, one tense, one \
+preposition. NOT a full rewrite.
 - The correct answer is the version that best conforms to standard English \
 conventions of grammar, punctuation, and mechanics — NOT vocabulary or \
-rhetorical effectiveness.
-- "NO CHANGE" should use distractor_role `best_answer` when the original \
-text is already correct, or `good_not_best` / `completely_wrong` when the \
-original text contains an error that a better alternative fixes.
-- Place "NO CHANGE" as choice A by convention.
+rhetorical effectiveness. NO CHANGE is correct when the original sentence is \
+already standard; one of the alternatives is correct when the original has \
+an error.
 - "NO CHANGE" applies only to grammar, punctuation, and editing questions. \
 Do NOT include "NO CHANGE" as an option for vocabulary-in-context or \
 rhetoric questions.
