@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     # Log format: "console" for colored human-readable, "json" for structured JSON.
     LOG_FORMAT: str = "console"
+    # Enable uvicorn auto-reload (dev convenience; MUST be False in production).
+    UVICORN_RELOAD: bool = False
 
     # ═══════════════════════════════════════════════════════════════════════════
     #  Mistral AI (LLM)

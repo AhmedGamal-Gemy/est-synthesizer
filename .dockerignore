@@ -1,0 +1,45 @@
+# Local artifacts — keep the Docker build context small.
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Runtime data (mounted as volumes, not baked into the image)
+data/
+*.db
+*.db-*
+*.log
+
+# Secrets — never bake into an image
+.env
+.env.*
+!.env.example
+
+# Tests — not needed at runtime (keep conftest? no, also exclude)
+backend/tests/
+
+# Frontend — if the React app is built into dist/ at deploy time, it's
+# copied in by a separate step or a multi-stage build, not the Python image.
+frontend/
+
+# Docs + scripts that are dev-only
+docs/
+scripts/
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+
+# Editor + OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
