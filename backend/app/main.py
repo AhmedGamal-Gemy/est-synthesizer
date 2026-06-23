@@ -8,6 +8,9 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.app.config import settings
 from backend.app.logging_config import configure_logging
+from backend.app.api.feedback import router as feedback_router
+from backend.app.api.generate import router as generate_router
+from backend.app.api.progress import router as progress_router
 from backend.app.routes.blueprints import router as blueprint_router
 from backend.app.routes.scraper import router as scraper_router
 from backend.app.storage.db import init_db
@@ -68,6 +71,9 @@ app.add_middleware(
 # ── routes ───────────────────────────────────────────
 app.include_router(blueprint_router)
 app.include_router(scraper_router)
+app.include_router(generate_router)
+app.include_router(progress_router)
+app.include_router(feedback_router)
 
 # ── static files (UI) ────────────────────────────────
 app.mount("/ui", StaticFiles(directory=str(HERE / "static")), name="ui")

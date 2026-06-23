@@ -265,8 +265,9 @@ class TestAssembleTest:
         assert len(mod1.passages) == 2
         assert {pb.passage_id for pb in mod1.passages} == {"p-a", "p-b"}
 
-    def test_skill_distribution_warning(self, capsys):
+    def test_skill_distribution_warning(self, caplog):
         """Warning logged when a blueprint skill_type has zero questions."""
+        caplog.set_level(0)  # capture everything
         questions = [
             _make_question_record(
                 module_number=1, slot_number=1, passage_id="p1",
@@ -276,11 +277,11 @@ class TestAssembleTest:
         blueprint = _make_blueprint()
         # Blueprint has PUNCTUATION in module 1 slot 2 — no question uses it
         assemble_test(questions, blueprint, job_id="job-009")
-        captured = capsys.readouterr()
-        assert "Missing skill type" in captured.out
+        assert any("Missing skill type" in str(rec) for rec in caplog.records)
 
-    def test_difficulty_distribution_warning(self, capsys):
+    def test_difficulty_distribution_warning(self, caplog):
         """Warning logged when difficulty deviates >10 % from blueprint."""
+        caplog.set_level(0)  # capture everything
         # Blueprint expects 40 % easy / 20 % medium / 40 % hard
         # We give 100 % easy → large deviation on medium & hard
         questions = [
@@ -295,8 +296,7 @@ class TestAssembleTest:
         ]
         blueprint = _make_blueprint()
         assemble_test(questions, blueprint, job_id="job-010")
-        captured = capsys.readouterr()
-        assert "Difficulty mismatch" in captured.out
+        assert any("Difficulty mismatch" in str(rec) for rec in caplog.records)
 
 
 class TestSaveTest:
