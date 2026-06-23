@@ -9,15 +9,37 @@ are defined in backend.app.generation.constants.
 
 from __future__ import annotations
 
+import re
 import structlog
-from typing import List
+from typing import List, Optional
 
 from backend.app.generation.constants import SYSTEM_PROMPT, WRITING_ADDON, SKILL_TYPE_DESCRIPTIONS
+from backend.app.generation.few_shot import get_default_few_shot
 from backend.app.schemas.enums import ModuleType, SkillType
 from backend.app.schemas.passage import Passage
 from backend.app.schemas.test import ModuleSlot
 
 logger = structlog.get_logger(__name__)
+
+# ponytail: pick 2 short sentences from the writing-module passage and call
+# them out as the "underlined portions" the LLM should ask about. The
+# original passage text is sent unmodified so the supporting_line check
+# (substring of passage text) still works without a denoising pass.
+WRITING_UNDERLINED_PORTIONS = 2
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _pick_underlined_portions(text: str, n: int) -> List[str]:
+    """Return up to n short sentences from *text* to use as writing-module targets."""
+    sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text.strip()) if s.strip()]
+    # Prefer sentences in the 30-180 char range — short enough to be a
+    # focused editing target, long enough to be a real sentence.
+    candidates = [s for s in sentences if 30 <= len(s) <= 180]
+    if len(candidates) < n:
+        # Fall back to whatever sentences we have, in order
+        candidates = sentences
+    return candidates[:n]
+
 
 # ---------------------------------------------------------------------------
 # build_system_prompt
@@ -33,14 +55,15 @@ def build_system_prompt() -> str:
     logger.debug("Returning static system prompt")
     return SYSTEM_PROMPT
 
+
 # ---------------------------------------------------------------------------
 # build_user_prompt
 # ---------------------------------------------------------------------------
 
 def build_user_prompt(
     passage: Passage,
-    few_shot_examples: List[dict],
-    slot_config: ModuleSlot,
+    few_shot_examples: Optional[List[dict]] = None,
+    slot_config: ModuleSlot = None,  # type: ignore[assignment]
     module_type: ModuleType = ModuleType.READING_SHORT,
     questions_already_generated: int = 0,
 ) -> str:
@@ -50,9 +73,12 @@ def build_user_prompt(
     ----------
     passage : Passage
         The source passage object (from schemas.passage).
-    few_shot_examples : List[dict]
+    few_shot_examples : Optional[List[dict]]
         Example questions for in-context learning. Each dict should
-        contain keys matching LLMQuestionOutput fields.
+        contain keys matching LLMQuestionOutput fields. When ``None``
+        (the default), the curated examples from
+        :func:`backend.app.generation.few_shot.get_default_few_shot`
+        are used so every prompt is grounded in concrete examples.
     slot_config : ModuleSlot
         The slot being processed — defines skill_type, difficulty,
         and question_count for this batch.
@@ -77,6 +103,9 @@ def build_user_prompt(
         The assembled user prompt with XML-delimited sections.
     """
 
+    if few_shot_examples is None:
+        few_shot_examples = get_default_few_shot()
+
     sections: list[str] = []
 
     # ── 1. PASSAGE ──────────────────────────────────────────────────────
@@ -88,6 +117,20 @@ def build_user_prompt(
         passage_block += f"Category: {passage.passage_category.value}\n"
     passage_block += f"\n{passage.text}\n</PASSAGE>"
     sections.append(passage_block)
+
+    # ── 1b. UNDERLINED_PORTIONS (writing module only) ───────────────────
+    # ponytail: writing-module questions need a real "underlined" target.
+    # Pick 2 short sentences from the passage and list them as the
+    # portions the LLM should ask about. The passage itself is sent
+    # unmodified so the supporting_line check (substring of passage) works.
+    if module_type == ModuleType.WRITING:
+        portions = _pick_underlined_portions(passage.text, WRITING_UNDERLINED_PORTIONS)
+        if portions:
+            portions_block = "<UNDERLINED_PORTIONS>\n"
+            for i, portion in enumerate(portions, start=1):
+                portions_block += f"[{i}] {portion}\n"
+            portions_block += "</UNDERLINED_PORTIONS>"
+            sections.append(portions_block)
 
     # ── 2. FEW_SHOT_EXAMPLES ────────────────────────────────────────────
     if few_shot_examples:
@@ -154,3 +197,4 @@ def build_user_prompt(
     logger.debug("Built user prompt", skill=slot_config.skill_type.value, difficulty=slot_config.difficulty.value, count=count, remaining=remaining)
 
     return "\n\n".join(sections)
+

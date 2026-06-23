@@ -156,6 +156,11 @@ back to an empty array.
 WRITING_ADDON: str = """\
 ## Writing-Module Specific Instructions
 
+- The prompt includes an `<UNDERLINED_PORTIONS>` block listing one or more \
+numbered sentences (e.g. [1], [2]) that the question should target. Each \
+generated question must ask about ONE of these numbered portions. \
+The `<PASSAGE>` block above does NOT include the [1]/[2] markers; quote the \
+underlying sentence from the passage as your `supporting_line`.
 - Always include "NO CHANGE" as one of the four answer choices for \
 writing/editing questions. This represents the original text as written.
 - Answer choices for conventions/editing questions should be full sentences, \
