@@ -156,12 +156,15 @@ def test_writing_addon_contains_no_change():
 
 
 def test_writing_addon_mentions_best_answer_role_for_no_change():
-    assert "best_answer" in WRITING_ADDON
+    """NO CHANGE is best_answer when the original is already correct."""
+    # The role can be mentioned by name or by its semantic description
+    # (which is what the v2 WRITING_ADDON does after T17 follow-up).
+    assert "best_answer" in WRITING_ADDON or "is correct when the original" in WRITING_ADDON
 
 
 def test_writing_addon_mentions_full_sentence_closely_worded_style():
-    assert "full sentences" in WRITING_ADDON
-    assert "closely worded" in WRITING_ADDON
+    """Choices should be minimal variants of the same sentence, not full rewrites."""
+    assert "full sentences" in WRITING_ADDON or "NOT a full rewrite" in WRITING_ADDON
 
 
 # ── SKILL_TYPE_DESCRIPTIONS ────────────────────────────────
@@ -615,3 +618,66 @@ def test_build_user_prompt_passage_text_unmodified_for_writing():
     # The [1]/[2] markers must NOT be inside the PASSAGE block
     assert "[1]" not in passage_block
     assert "[2]" not in passage_block
+
+
+# ── Literal NO CHANGE example (T17 follow-up) ───────────────
+
+
+def test_literal_no_change_example_is_in_default_set():
+    """The default few-shot set must include the literal NO CHANGE example."""
+    from backend.app.generation.few_shot import (
+        DEFAULT_FEW_SHOT_EXAMPLES, LITERAL_NO_CHANGE_EXAMPLE,
+    )
+    assert LITERAL_NO_CHANGE_EXAMPLE in DEFAULT_FEW_SHOT_EXAMPLES
+
+
+def test_literal_no_change_example_has_no_change_literally():
+    """Choice A must be the literal string 'NO CHANGE' (not a paraphrase)."""
+    from backend.app.generation.few_shot import LITERAL_NO_CHANGE_EXAMPLE
+
+    choice_a = LITERAL_NO_CHANGE_EXAMPLE["choices"][0]
+    assert choice_a["letter"] == "A"
+    assert choice_a["text"] == "NO CHANGE"
+    assert choice_a["distractor_role"] == "best_answer"
+
+
+def test_literal_no_change_example_other_choices_are_minimal_variants():
+    """B/C/D should be the same sentence with one specific fix each
+    (not full rewrites)."""
+    from backend.app.generation.few_shot import LITERAL_NO_CHANGE_EXAMPLE
+
+    for ch in LITERAL_NO_CHANGE_EXAMPLE["choices"][1:]:
+        # All variants should contain the anchor word "data" (the
+        # subject of the example sentence). This catches a full
+        # rewrite where the model went off-topic.
+        assert "data" in ch["text"].lower(), f"Choice {ch['letter']} lost the subject"
+        # None of B/C/D should be the literal "NO CHANGE" string
+        assert ch["text"] != "NO CHANGE"
+
+
+def test_default_few_shot_appears_in_writing_module_prompt():
+    """When a writing-module prompt is built, the LITERAL NO CHANGE
+    example text should appear in the <FEW_SHOT_EXAMPLES> block."""
+    slot = ModuleSlot(
+        slot_number=1, skill_type=SkillType.SENTENCE_FORMATION,
+        difficulty=Difficulty.MEDIUM, question_count=1,
+        easy_count=0, medium_count=1, hard_count=0,
+    )
+    result = build_user_prompt(
+        passage=_valid_passage(text=_WRITING_PASSAGE_TEXT),
+        slot_config=slot,
+        module_type=ModuleType.WRITING,
+        # few_shot_examples=None → curated defaults → LITERAL_NO_CHANGE_EXAMPLE
+    )
+    # The anchor phrase from the LITERAL_NO_CHANGE_EXAMPLE
+    assert "peer-reviewed journal" in result
+
+
+def test_writing_addon_emphasizes_literal_no_change():
+    """The WRITING_ADDON must insist on the literal text 'NO CHANGE'."""
+    from backend.app.generation.constants import WRITING_ADDON
+
+    assert "NO CHANGE" in WRITING_ADDON
+    # The LITERAL emphasis is key — we found that without it, the LLM
+    # treated NO CHANGE as a generic label rather than a literal option.
+    assert "LITERAL" in WRITING_ADDON or "literal" in WRITING_ADDON.lower()

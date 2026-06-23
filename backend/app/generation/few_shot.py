@@ -39,6 +39,27 @@ WRITING_NO_CHANGE_EXAMPLE: dict = {
 }
 
 
+# ponytail: a second, more literal NO CHANGE example. The earlier example
+# showed NO CHANGE vs. informal rewrites, which the LLM apparently reads
+# as "NO CHANGE is a generic label". This one shows the literal pattern
+# the EST actually uses: NO CHANGE as choice A, with the other three
+# choices being real grammar/usage variants of the same sentence.
+LITERAL_NO_CHANGE_EXAMPLE: dict = {
+    "question_text": "Which choice best corrects the underlined portion of the sentence?",
+    "choices": [
+        {"letter": "A", "text": "NO CHANGE", "distractor_role": "best_answer"},
+        {"letter": "B", "text": "The data, which was collected over six months, were published in a peer-reviewed journal.", "distractor_role": "completely_wrong"},
+        {"letter": "C", "text": "The data, which were collected over six months, was published in a peer-reviewed journal.", "distractor_role": "completely_wrong"},
+        {"letter": "D", "text": "The data which was collected over six months was published in a peer-reviewed journal.", "distractor_role": "good_not_best"},
+    ],
+    "correct_answer": "A",
+    "explanation": "NO CHANGE is correct. \"Data\" is treated as a singular noun in formal scientific writing, so both the verb (\"was\") and the relative clause (\"which was\") agree with it. The alternatives break subject-verb agreement or drop the necessary comma after the introductory clause.",
+    "supporting_line": "The data, which was collected over six months, was published in a peer-reviewed journal",
+    "skill_type": "conventions_of_standard_english",
+    "difficulty": "medium",
+}
+
+
 WRITING_TRANSITION_EXAMPLE: dict = {
     "question_text": "Which transition best connects this sentence to the previous one?",
     "choices": [
@@ -111,7 +132,7 @@ READING_EVIDENCE_EXAMPLE: dict = {
 # (P1 from the plan) will replace these with a fuller bank.
 
 DEFAULT_FEW_SHOT_EXAMPLES: List[dict] = [
-    WRITING_NO_CHANGE_EXAMPLE,
+    LITERAL_NO_CHANGE_EXAMPLE,
     READING_MAIN_IDEA_EXAMPLE,
 ]
 
