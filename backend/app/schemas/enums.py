@@ -16,6 +16,36 @@ class LowerStrEnum(str, Enum):
     def _generate_next_value_(name: str, start: int, count: int, last_values: list) -> str:
         return name.lower()
 
+    @classmethod
+    def _missing_(cls, value: object) -> object:
+        # Support legacy numeric enum codes persisted as strings or ints.
+        if isinstance(value, str) and value.isdigit():
+            idx = int(value) - 1
+            members = list(cls)
+            if 0 <= idx < len(members):
+                return members[idx]
+        if isinstance(value, int):
+            idx = value - 1
+            members = list(cls)
+            if 0 <= idx < len(members):
+                return members[idx]
+        return super()._missing_(value)
+
+    @classmethod
+    def _missing_(cls, value: object) -> object:
+        # Support legacy numeric enum codes persisted as strings or ints.
+        if isinstance(value, str) and value.isdigit():
+            idx = int(value) - 1
+            members = list(cls)
+            if 0 <= idx < len(members):
+                return members[idx]
+        if isinstance(value, int):
+            idx = value - 1
+            members = list(cls)
+            if 0 <= idx < len(members):
+                return members[idx]
+        return super()._missing_(value)
+
 
 class PassageType(LowerStrEnum):
     """Classification of a passage by length/structure."""

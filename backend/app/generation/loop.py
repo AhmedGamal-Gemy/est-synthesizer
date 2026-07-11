@@ -40,48 +40,57 @@ class _SlotResult:
 
 
 async def _retrieve_passages(qdrant, blueprint) -> dict[tuple[int, int], Passage]:
-    """One passage per unique (module, slot_number), fetched in parallel."""
-    needed: dict[tuple[int, int], tuple[ModuleType, ModuleSlot]] = {}
+    """One distinct passage per unique (module, slot_number), fetched in parallel per module type."""
+    groups: dict[ModuleType, list[tuple[int, int]]] = {}
     for mod in blueprint.modules:
         seen = set()
         for slot in mod.slots:
             key = (mod.module_number, slot.slot_number)
             if key not in seen:
                 seen.add(key)
-                needed[key] = (mod.module_type, slot)
+                groups.setdefault(mod.module_type, []).append(key)
 
-    async def _fetch(key, module_type, slot):
+    async def _fetch_group(module_type, keys):
         if module_type == ModuleType.WRITING:
-            col, q = "long_passages", "essay argumentative text"
-            fil = {"passage_type": "long"}
+            col, q, fil = "long_passages", "essay argumentative text", {"passage_type": "long"}
         elif module_type == ModuleType.READING_LONG:
-            col, q = "long_passages", "narrative scientific historical text"
-            fil = {"passage_type": "long"}
+            col, q, fil = "long_passages", "narrative scientific historical text", {"passage_type": "long"}
         else:
-            col, q = "short_passages", "informational narrative text"
-            fil = {"passage_type": "short"}
-        results = await qdrant.search_passages(query_text=q, collection=col, filters=fil, limit=1)
-        if not results:
-            return key, None
-        p = results[0]["payload"] or {}
-        passage = Passage(
-            id=results[0]["id"], text=p.get("text", ""),
-            source_url=p.get("source_url", ""), source_title=p.get("source_title", ""),
-            passage_type=PassageType(p.get("passage_type", "long")),
-            passage_category=PassageCategory(p.get("passage_category", "essay")),
-            word_count=p.get("word_count", 0), reading_level=p.get("reading_level", 0.0),
-        )
-        return key, passage
+            col, q, fil = "short_passages", "informational narrative text", {"passage_type": "short"}
+        results = await qdrant.search_passages(query_text=q, collection=col, filters=fil, limit=len(keys))
+        out = {}
+        n = len(results)
+        if n == 0:
+            return out
+        if n < len(keys):
+            log.warning(
+                "Not enough distinct passages for module type, recycling",
+                module_type=module_type.value, needed=len(keys), available=n,
+            )
+        for i, key in enumerate(keys):
+            r = results[i % n]
+            p = r["payload"] or {}
+            out[key] = Passage(
+                id=r["id"], text=p.get("text", ""),
+                source_url=p.get("source_url", ""), source_title=p.get("source_title", ""),
+                passage_type=PassageType(p.get("passage_type", "long")),
+                passage_category=PassageCategory(p.get("passage_category", "essay")),
+                word_count=p.get("word_count", 0), reading_level=p.get("reading_level", 0.0),
+            )
+        return out
 
-    gathered = await asyncio.gather(*[_fetch(k, mt, s) for k, (mt, s) in needed.items()])
-    return {k: p for k, p in gathered if p is not None}
+    gathered = await asyncio.gather(*[_fetch_group(mt, keys) for mt, keys in groups.items()])
+    merged: dict[tuple[int, int], Passage] = {}
+    for d in gathered:
+        merged.update(d)
+    return merged
 
 
 async def _generate_slot(slot, module_number, module_type, passage) -> _SlotResult:
     """One slot with retries. Empty questions list = exhausted retries."""
     result = _SlotResult(passage_id=passage.id, module_number=module_number,
                          module_type=module_type, slot_number=slot.slot_number, slot_config=slot)
-    sp, up = build_system_prompt(), build_user_prompt(passage, [], slot, module_type)
+    sp, up = build_system_prompt(), build_user_prompt(passage, None, slot, module_type)
     last_err = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:

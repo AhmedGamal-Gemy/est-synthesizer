@@ -7,6 +7,8 @@ fallback, and the default-flag values.
 from __future__ import annotations
 
 import sys
+
+import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -20,28 +22,31 @@ import generate_test  # noqa: E402
 # ── _resolve_blueprint: fallback path ──────────────────────
 
 
-def test_resolve_blueprint_falls_back_to_default_when_id_missing():
+@pytest.mark.asyncio
+async def test_resolve_blueprint_falls_back_to_default_when_id_missing():
     """A non-existent blueprint id should fall back to DEFAULT_BLUEPRINT."""
     fake_get = AsyncMock(return_value=None)
     with patch.object(generate_test, "get_blueprint", fake_get):
-        bp = generate_test._resolve_blueprint("nonexistent-id-xyz")
+        bp = await generate_test._resolve_blueprint("nonexistent-id-xyz")
     assert bp.id == "default_blueprint_v1"
 
 
-def test_resolve_blueprint_falls_back_when_id_empty():
+@pytest.mark.asyncio
+async def test_resolve_blueprint_falls_back_when_id_empty():
     """Empty string (the sentinel from --blueprint '') should also fall back."""
     fake_get = AsyncMock(return_value=None)
     with patch.object(generate_test, "get_blueprint", fake_get):
-        bp = generate_test._resolve_blueprint("")
+        bp = await generate_test._resolve_blueprint("")
     assert bp.id == "default_blueprint_v1"
 
 
-def test_resolve_blueprint_returns_db_hit():
+@pytest.mark.asyncio
+async def test_resolve_blueprint_returns_db_hit():
     """When the DB returns a blueprint, _resolve_blueprint should use it."""
     db_row = {"blueprint_json": generate_test.DEFAULT_BLUEPRINT.model_dump(mode="json")}
     fake_get = AsyncMock(return_value=db_row)
     with patch.object(generate_test, "get_blueprint", fake_get):
-        bp = generate_test._resolve_blueprint("default_blueprint_v1")
+        bp = await generate_test._resolve_blueprint("default_blueprint_v1")
     assert bp.id == "default_blueprint_v1"
     assert bp.total_questions == generate_test.DEFAULT_BLUEPRINT.total_questions
 

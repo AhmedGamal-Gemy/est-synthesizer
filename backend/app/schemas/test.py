@@ -112,6 +112,32 @@ class ModuleSlot(BaseModel):
                 return Difficulty(v.lower())
         return v
 
+    @model_validator(mode="before")
+    def _fill_missing_counts(cls, values: object) -> object:
+        if not isinstance(values, dict):
+            return values
+        if (
+            "easy_count" not in values
+            and "medium_count" not in values
+            and "hard_count" not in values
+            and "difficulty" in values
+            and "question_count" in values
+        ):
+            difficulty = values["difficulty"]
+            if isinstance(difficulty, str):
+                try:
+                    difficulty = Difficulty(difficulty)
+                except ValueError:
+                    difficulty = Difficulty(difficulty.lower())
+            count = values["question_count"]
+            if difficulty == Difficulty.EASY:
+                values["easy_count"] = count
+            elif difficulty == Difficulty.MEDIUM:
+                values["medium_count"] = count
+            elif difficulty == Difficulty.HARD:
+                values["hard_count"] = count
+        return values
+
     @model_validator(mode="after")
     def _validate_difficulty_counts(self) -> "ModuleSlot":
         if self.easy_count + self.medium_count + self.hard_count != self.question_count:

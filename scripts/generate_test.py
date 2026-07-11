@@ -48,15 +48,24 @@ from backend.app.storage.jobs import create_job  # noqa: E402
 from backend.app.storage.qdrant import QdrantManager, COLLECTION_LONG, COLLECTION_SHORT  # noqa: E402
 
 
-def _resolve_blueprint(bp_id: str) -> TestBlueprint:
+async def _resolve_blueprint(bp_id: str) -> TestBlueprint:
     """Load blueprint by id from DB; fall back to the DEFAULT constant if missing."""
-    if bp_id:
-        row = asyncio.run(get_blueprint(bp_id))
-        if row is None:
-            print(f"Blueprint {bp_id!r} not found in DB. Using DEFAULT_BLUEPRINT.")
-            return DEFAULT_BLUEPRINT
-        return TestBlueprint.model_validate(row["blueprint_json"])
-    return DEFAULT_BLUEPRINT
+    if not bp_id:
+        return DEFAULT_BLUEPRINT
+
+    row = await get_blueprint(bp_id)
+    if row is None:
+        print(f"Blueprint {bp_id!r} not found in DB. Using DEFAULT_BLUEPRINT.")
+        return DEFAULT_BLUEPRINT
+
+    try:
+        return TestBlueprint.model_validate(row["blueprint_json"], strict=False)
+    except Exception as exc:
+        print(
+            f"Blueprint {bp_id!r} in DB failed validation ({exc}). "
+            "Using DEFAULT_BLUEPRINT."
+        )
+        return DEFAULT_BLUEPRINT
 
 
 async def _fetch_passage_texts(passage_ids: set[str]) -> dict[str, str]:
@@ -86,7 +95,7 @@ async def _fetch_passage_texts(passage_ids: set[str]) -> dict[str, str]:
 async def _run(bp_id: str, render_pdfs: bool, log_level: str) -> int:
     configure_logging(log_level=log_level)
 
-    bp = _resolve_blueprint(bp_id)
+    bp = await _resolve_blueprint(bp_id)
     total_slots = sum(len(m.slots) for m in bp.modules)
     print(f"Blueprint: {bp.name} ({bp.total_questions} questions, {len(bp.modules)} modules, {total_slots} slots)")
 

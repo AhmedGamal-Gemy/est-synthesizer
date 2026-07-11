@@ -1,8 +1,38 @@
 services:
   qdrant:
     image: qdrant/qdrant:v1.18.0
+    restart: unless-stopped
     ports:
       - "6333:6333"
-      - "6334:6334"
     volumes:
       - ./data/qdrant:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # Ensure production-mode defaults even if .env doesn't set them.
+      UVICORN_RELOAD: "false"
+      LOG_FORMAT: "json"
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    volumes:
+      # Persist state outside the image so restarts don't lose data.
+      - ./data/db:/app/data/db
+      - ./data/generated:/app/data/generated
+      - ./data/logs:/app/data/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

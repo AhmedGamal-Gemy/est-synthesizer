@@ -144,9 +144,10 @@ def mock_qdrant():
         inst.search_passages = AsyncMock(
             side_effect=lambda query_text, collection, filters, limit: [
                 _fake_passage_payload(
-                    f"passage-{collection}-{hash(query_text)}",
+                    f"passage-{collection}-{hash(query_text)}-{i}",
                     text="Some passage text for testing.",
                 )
+                for i in range(limit)
             ]
         )
         instances.append(inst)

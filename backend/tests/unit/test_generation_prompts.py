@@ -464,8 +464,9 @@ def test_build_user_prompt_different_already_generated_counts():
 # ── Few-shot examples default (T17) ────────────────────────
 
 
-def test_build_user_prompt_defaults_few_shot_when_none():
+def test_build_user_prompt_defaults_few_shot_when_none(monkeypatch):
     """When few_shot_examples is None, the curated default examples are used."""
+    monkeypatch.setattr("backend.app.generation.few_shot.load_extracted_samples", lambda **kw: None)
     from backend.app.generation.few_shot import DEFAULT_FEW_SHOT_EXAMPLES
 
     slot = ModuleSlot(
@@ -655,9 +656,10 @@ def test_literal_no_change_example_other_choices_are_minimal_variants():
         assert ch["text"] != "NO CHANGE"
 
 
-def test_default_few_shot_appears_in_writing_module_prompt():
+def test_default_few_shot_appears_in_writing_module_prompt(monkeypatch):
     """When a writing-module prompt is built, the LITERAL NO CHANGE
     example text should appear in the <FEW_SHOT_EXAMPLES> block."""
+    monkeypatch.setattr("backend.app.generation.few_shot.load_extracted_samples", lambda **kw: None)
     slot = ModuleSlot(
         slot_number=1, skill_type=SkillType.SENTENCE_FORMATION,
         difficulty=Difficulty.MEDIUM, question_count=1,
