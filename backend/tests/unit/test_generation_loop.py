@@ -142,7 +142,7 @@ def mock_qdrant():
         inst = MagicMock(spec=original)
         inst.close = AsyncMock()
         inst.search_passages = AsyncMock(
-            side_effect=lambda query_text, collection, filters, limit: [
+            side_effect=lambda query_text, collection, filters, limit, exclude_ids=None: [
                 _fake_passage_payload(
                     f"passage-{collection}-{hash(query_text)}-{i}",
                     text="Some passage text for testing.",

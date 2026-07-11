@@ -39,7 +39,9 @@ class _SlotResult:
     questions: List[LLMQuestionOutput] = field(default_factory=list)
 
 
-async def _retrieve_passages(qdrant, blueprint) -> dict[tuple[int, int], Passage]:
+async def _retrieve_passages(
+    qdrant, blueprint, exclude_ids: set[str] | None = None,
+) -> dict[tuple[int, int], Passage]:
     """One distinct passage per unique (module, slot_number), fetched in parallel per module type."""
     groups: dict[ModuleType, list[tuple[int, int]]] = {}
     for mod in blueprint.modules:
@@ -52,23 +54,27 @@ async def _retrieve_passages(qdrant, blueprint) -> dict[tuple[int, int], Passage
 
     async def _fetch_group(module_type, keys):
         if module_type == ModuleType.WRITING:
-            col, q, fil = "long_passages", "essay argumentative text", {"passage_type": "long"}
+            col, q, base_fil = "long_passages", "essay argumentative text", {"passage_type": "long"}
         elif module_type == ModuleType.READING_LONG:
-            col, q, fil = "long_passages", "narrative scientific historical text", {"passage_type": "long"}
+            col, q, base_fil = "long_passages", "narrative scientific historical text", {"passage_type": "long"}
         else:
-            col, q, fil = "short_passages", "informational narrative text", {"passage_type": "short"}
-        results = await qdrant.search_passages(query_text=q, collection=col, filters=fil, limit=len(keys))
-        out = {}
-        n = len(results)
-        if n == 0:
-            return out
-        if n < len(keys):
+            col, q, base_fil = "short_passages", "informational narrative text", {"passage_type": "short"}
+        fil = base_fil.copy()
+        results = await qdrant.search_passages(query_text=q, collection=col, filters=fil, limit=len(keys), exclude_ids=exclude_ids)
+        # If too few results, relax the passage_type filter to find any suitable passage
+        if len(results) < len(keys):
+            relaxed = {k: v for k, v in fil.items() if k != "passage_type"}
             log.warning(
-                "Not enough distinct passages for module type, recycling",
-                module_type=module_type.value, needed=len(keys), available=n,
+                "Not enough distinct passages, relaxing filter",
+                module_type=module_type.value, needed=len(keys), available=len(results),
             )
+            results = await qdrant.search_passages(query_text=q, collection=col, filters=relaxed or None, limit=len(keys), exclude_ids=exclude_ids)
+        out = {}
         for i, key in enumerate(keys):
-            r = results[i % n]
+            if i >= len(results):
+                log.warning("Still not enough passages after relaxed filter, slot will be skipped", key=key)
+                continue
+            r = results[i]
             p = r["payload"] or {}
             out[key] = Passage(
                 id=r["id"], text=p.get("text", ""),
@@ -115,7 +121,8 @@ async def run_generation_loop(blueprint: TestBlueprint, job_id: str) -> list[dic
     total_slots = sum(len(m.slots) for m in blueprint.modules)
     await update_job_status(job_id, JobStatus.GENERATING, completed_slots=0)
 
-    passages = await _retrieve_passages(qdrant, blueprint)
+    used_passage_ids: set[str] = set()
+    passages = await _retrieve_passages(qdrant, blueprint, exclude_ids=used_passage_ids)
     completed = failed = 0
     all_results: list[_SlotResult] = []
 
@@ -125,6 +132,7 @@ async def run_generation_loop(blueprint: TestBlueprint, job_id: str) -> list[dic
             if passage is None:
                 failed += 1
                 continue
+            used_passage_ids.add(passage.id)
             sr = await _generate_slot(slot, mod.module_number, mod.module_type, passage)
             all_results.append(sr)
             if sr.questions:
