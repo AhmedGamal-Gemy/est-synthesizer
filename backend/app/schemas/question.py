@@ -188,7 +188,7 @@ class LLMBatchOutput(BaseModel):
     by a ``questions`` array.  Each question conforms to LLMQuestionOutput.
     """
 
-    model_config = ConfigDict(strict=True)
+    model_config = ConfigDict(strict=True, use_enum_values=True)
 
     reasoning: str = Field(
         ...,
