@@ -18,6 +18,7 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    HasIdCondition,
     MatchValue,
     Mmr,
     NearestQuery,
@@ -218,6 +219,7 @@ class QdrantManager:
         use_mmr: bool = False,
         diversity: float | None = None,
         candidates_limit: int | None = None,
+        exclude_ids: set[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Search *collection* by cosine similarity to *query_text*.
 
@@ -249,7 +251,7 @@ class QdrantManager:
         List of ``{id, score, payload}`` dicts.
         """
         query_vector = await self._embed(query_text, is_query=True)
-        qdrant_filter = _build_filter(filters) if filters else None
+        qdrant_filter = _build_filter(filters, exclude_ids)
 
         if use_mmr:
             query = NearestQuery(
@@ -282,30 +284,40 @@ class QdrantManager:
 # ── filter builder ────────────────────────────────────────
 
 
-def _build_filter(filters: dict[str, Any]) -> Filter:
-    """Convert a plain dict into a Qdrant ``Filter``.
+def _build_filter(
+    filters: dict[str, Any] | None,
+    exclude_ids: set[str] | None = None,
+) -> Filter | None:
+    """Convert a plain dict into a Qdrant ``Filter`` with optional ID exclusion.
 
     Supported operators per field:
     - Exact match: ``{"field": value}``
     - Range: ``{"field": {"gte": …, "lte": …}}``
     """
     conditions: list[FieldCondition] = []
-    for field, value in filters.items():
-        if isinstance(value, dict):
-            conditions.append(
-                FieldCondition(
-                    key=field,
-                    range=Range(
-                        gte=value.get("gte"),
-                        lte=value.get("lte"),
-                    ),
+    if filters:
+        for field, value in filters.items():
+            if isinstance(value, dict):
+                conditions.append(
+                    FieldCondition(
+                        key=field,
+                        range=Range(
+                            gte=value.get("gte"),
+                            lte=value.get("lte"),
+                        ),
+                    )
                 )
-            )
-        else:
-            conditions.append(
-                FieldCondition(
-                    key=field,
-                    match=MatchValue(value=value),
+            else:
+                conditions.append(
+                    FieldCondition(
+                        key=field,
+                        match=MatchValue(value=value),
+                    )
                 )
-            )
-    return Filter(must=conditions)
+    must_not: list[HasIdCondition] = []
+    if exclude_ids:
+        must_not.append(HasIdCondition(has_id=list(exclude_ids)))
+
+    if not conditions and not must_not and filters is None:
+        return None
+    return Filter(must=conditions if conditions else [], must_not=must_not)
