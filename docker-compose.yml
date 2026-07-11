@@ -6,6 +6,9 @@ services:
       - "6333:6333"
     volumes:
       - ./data/qdrant:/qdrant/storage
+    environment:
+      # Reduce memory pressure on Windows Docker Desktop
+      QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS: "2"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:6333/health"]
       interval: 30s

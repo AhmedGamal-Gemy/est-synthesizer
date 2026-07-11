@@ -66,6 +66,7 @@ def build_user_prompt(
     slot_config: ModuleSlot = None,  # type: ignore[assignment]
     module_type: ModuleType = ModuleType.READING_SHORT,
     questions_already_generated: int = 0,
+    covered_lines: Optional[list[str]] = None,
 ) -> str:
     """Assemble the per-request user prompt from XML sections.
 
@@ -166,6 +167,10 @@ def build_user_prompt(
     task_block += f"Difficulty Level: {difficulty_value}\n"
     task_block += f"Number of Questions: {count}\n"
     task_block += f"Difficulty Distribution: {slot_config.easy_count} easy, {slot_config.medium_count} medium, {slot_config.hard_count} hard\n"
+    task_block += "Distractor integrity — For the good_not_best choice: you MUST explain in the reasoning field exactly why it is definitively worse than the best_answer. Cite the specific passage evidence that rules it out. If you cannot articulate a clear, passage-supported reason why it is inferior, choose a different distractor. Two choices that can both be reasonably argued as correct is a generation failure.\n"
+
+    if covered_lines:
+        task_block += f"Already covered lines — do NOT generate a question supported by any of these: {covered_lines}\n"
 
     if module_type == ModuleType.WRITING:
         task_block += f"\n{WRITING_ADDON}\n"

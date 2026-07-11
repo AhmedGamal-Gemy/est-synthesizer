@@ -92,11 +92,13 @@ async def _retrieve_passages(
     return merged
 
 
-async def _generate_slot(slot, module_number, module_type, passage) -> _SlotResult:
+async def _generate_slot(slot, module_number, module_type, passage,
+                         questions_already_generated=0, covered_lines=None) -> _SlotResult:
     """One slot with retries. Empty questions list = exhausted retries."""
     result = _SlotResult(passage_id=passage.id, module_number=module_number,
                          module_type=module_type, slot_number=slot.slot_number, slot_config=slot)
-    sp, up = build_system_prompt(), build_user_prompt(passage, None, slot, module_type)
+    sp, up = build_system_prompt(), build_user_prompt(passage, None, slot, module_type,
+                                                      questions_already_generated, covered_lines)
     last_err = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -125,6 +127,8 @@ async def run_generation_loop(blueprint: TestBlueprint, job_id: str) -> list[dic
     passages = await _retrieve_passages(qdrant, blueprint, exclude_ids=used_passage_ids)
     completed = failed = 0
     all_results: list[_SlotResult] = []
+    covered_lines: dict[str, list[str]] = {}
+    per_passage_count: dict[str, int] = {}
 
     for mod in blueprint.modules:
         for slot in mod.slots:
@@ -134,9 +138,18 @@ async def run_generation_loop(blueprint: TestBlueprint, job_id: str) -> list[dic
                 continue
             used_passage_ids.add(passage.id)
             sr = await _generate_slot(slot, mod.module_number, mod.module_type, passage)
+            pid = passage.id
+            sr = await _generate_slot(
+                slot, mod.module_number, mod.module_type, passage,
+                questions_already_generated=per_passage_count.get(pid, 0),
+                covered_lines=covered_lines.get(pid, []),
+            )
             all_results.append(sr)
             if sr.questions:
                 completed += 1
+                for q in sr.questions:
+                    covered_lines.setdefault(pid, []).append(q.supporting_line)
+                per_passage_count[pid] = per_passage_count.get(pid, 0) + len(sr.questions)
             else:
                 failed += 1
             await update_job_status(job_id, JobStatus.GENERATING, completed_slots=completed, failed_slots=failed)
