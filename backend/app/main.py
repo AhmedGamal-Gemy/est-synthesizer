@@ -78,14 +78,6 @@ app.include_router(feedback_router)
 # ── static files (UI) ────────────────────────────────
 app.mount("/ui", StaticFiles(directory=str(HERE / "static")), name="ui")
 
-# ── frontend SPA (built dist, if present) ────────────
-# When the React app is built (`npm run build` → `frontend/dist/`),
-# serve it from the root so the SPA can take over client-side routes.
-FRONTEND_DIST = HERE.parent.parent / "frontend" / "dist"
-if FRONTEND_DIST.exists():
-    app.mount(
-        "/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend"
-    )
 
 
 @app.get("/api/config")
