@@ -98,6 +98,11 @@ fences, no commentary outside the JSON structure, no trailing text.
 5. **No repetition** — Each question must test a *distinct* aspect of the \
 passage. Avoid asking about the same fact or skill twice.
 
+6. **Grammar correctness** — Every question stem and every answer choice \
+must be grammatically correct standard English. Read each choice as a \
+standalone sentence before outputting. A grammatically broken question is \
+always rejected regardless of content quality.
+
 ## EST Style Notes
 
 - **Writing module (Module 1)** uses wordy answer choices — full sentences \
@@ -178,4 +183,8 @@ an error.
 - "NO CHANGE" applies only to grammar, punctuation, and editing questions. \
 Do NOT include "NO CHANGE" as an option for vocabulary-in-context or \
 rhetoric questions.
+- Writing module answer choices must be grammatically valid sentences — the \
+only intentional error is the one being tested. Every distractor must be a \
+well-formed sentence; grammatical mistakes in the question stem or choices \
+are never acceptable.
 """
