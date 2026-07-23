@@ -137,7 +137,6 @@ async def run_generation_loop(blueprint: TestBlueprint, job_id: str) -> list[dic
                 failed += 1
                 continue
             used_passage_ids.add(passage.id)
-            sr = await _generate_slot(slot, mod.module_number, mod.module_type, passage)
             pid = passage.id
             sr = await _generate_slot(
                 slot, mod.module_number, mod.module_type, passage,

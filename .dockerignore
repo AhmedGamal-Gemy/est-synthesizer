@@ -29,9 +29,8 @@ backend/tests/
 # copied in by a separate step or a multi-stage build, not the Python image.
 frontend/
 
-# Docs + scripts that are dev-only
+# Docs — keep out of image, but scripts are needed in container
 docs/
-scripts/
 
 # Python build artifacts
 build/

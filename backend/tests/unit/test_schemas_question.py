@@ -98,37 +98,48 @@ def test_generated_question_valid_distractor_roles():
 
 
 def test_generated_question_too_many_best_answer():
+    """Double BEST_ANSWER auto-repairs by demoting one to GOOD_NOT_BEST."""
     bad_choices = [
         _valid_choice("A", DistractorRole.BEST_ANSWER),
         _valid_choice("B", DistractorRole.BEST_ANSWER),
         _valid_choice("C", DistractorRole.COMPLETELY_WRONG),
         _valid_choice("D", DistractorRole.COMPLETELY_WRONG),
     ]
-    with pytest.raises(ValidationError, match="1 BEST_ANSWER"):
-        GeneratedQuestion(**_valid_question(choices=bad_choices))
+    q = GeneratedQuestion(**_valid_question(choices=bad_choices))
+    roles = [c.distractor_role for c in q.choices]
+    assert roles.count(DistractorRole.BEST_ANSWER) == 1
+    assert roles.count(DistractorRole.GOOD_NOT_BEST) == 1
+    assert roles.count(DistractorRole.COMPLETELY_WRONG) == 2
 
 
-def test_generated_question_no_good_not_best():
+def test_generated_question_no_good_not_best_auto_repaired():
+    """Missing GOOD_NOT_BEST auto-repairs by promoting one COMPLETELY_WRONG."""
     bad_choices = [
         _valid_choice("A", DistractorRole.BEST_ANSWER),
         _valid_choice("B", DistractorRole.COMPLETELY_WRONG),
         _valid_choice("C", DistractorRole.COMPLETELY_WRONG),
         _valid_choice("D", DistractorRole.COMPLETELY_WRONG),
     ]
-    with pytest.raises(ValidationError, match="1 GOOD_NOT_BEST"):
-        GeneratedQuestion(**_valid_question(choices=bad_choices))
+    q = GeneratedQuestion(**_valid_question(choices=bad_choices))
+    roles = [c.distractor_role for c in q.choices]
+    assert roles.count(DistractorRole.BEST_ANSWER) == 1
+    assert roles.count(DistractorRole.GOOD_NOT_BEST) == 1
+    assert roles.count(DistractorRole.COMPLETELY_WRONG) == 2
 
 
 def test_generated_question_no_completely_wrong():
-    """Only 1 COMPLETELY_WRONG instead of required 2 — triggers GOOD_NOT_BEST or COMPLETELY_WRONG validation."""
+    """Excess GOOD_NOT_BEST auto-repairs by demoting extras to COMPLETELY_WRONG."""
     bad_choices = [
         _valid_choice("A", DistractorRole.BEST_ANSWER),
         _valid_choice("B", DistractorRole.GOOD_NOT_BEST),
         _valid_choice("C", DistractorRole.GOOD_NOT_BEST),
         _valid_choice("D", DistractorRole.COMPLETELY_WRONG),
     ]
-    with pytest.raises(ValidationError):
-        GeneratedQuestion(**_valid_question(choices=bad_choices))
+    q = GeneratedQuestion(**_valid_question(choices=bad_choices))
+    roles = [c.distractor_role for c in q.choices]
+    assert roles.count(DistractorRole.BEST_ANSWER) == 1
+    assert roles.count(DistractorRole.GOOD_NOT_BEST) == 1
+    assert roles.count(DistractorRole.COMPLETELY_WRONG) == 2
 
 
 # ── GeneratedQuestion — choices length constraints ───────────
