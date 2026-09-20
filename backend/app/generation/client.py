@@ -31,7 +31,7 @@ async def call_llm(
     temperature: float,
     max_tokens: int,
     api_key: str,
-    api_base: str,
+    api_base: str | None,
 ) -> str:
     """Call the LLM via LiteLLM and return the raw response text."""
     response = await litellm.acompletion(

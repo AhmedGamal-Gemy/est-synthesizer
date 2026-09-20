@@ -15,6 +15,17 @@ services:
       timeout: 5s
       retries: 3
 
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    restart: unless-stopped
+    ports:
+      - "4002:4000"
+    volumes:
+      - ./litellm_proxy.yaml:/app/config.yaml
+    environment:
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+    command: [ "--config", "/app/config.yaml", "--port", "4000", "--detailed_debug" ]
+
   app:
     build: .
     restart: unless-stopped
@@ -25,14 +36,20 @@ services:
       # Ensure production-mode defaults even if .env doesn't set them.
       UVICORN_RELOAD: "false"
       LOG_FORMAT: "json"
+      # Inside Docker, reach the LiteLLM service by container name.
+      LITELLM_PROXY_URL: "http://litellm:4000"
     depends_on:
       qdrant:
         condition: service_healthy
+      litellm:
+        condition: service_started
     volumes:
       # Persist state outside the image so restarts don't lose data.
       - ./data/db:/app/data/db
       - ./data/generated:/app/data/generated
       - ./data/logs:/app/data/logs
+      # Mount scripts so they are available inside the container.
+      - ./scripts:/app/scripts
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 30s

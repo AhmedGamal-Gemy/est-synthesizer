@@ -66,7 +66,7 @@ class LLMQueue:
         model = f"litellm_proxy/{settings.LITELLM_MODEL}" if settings.LITELLM_MODEL else self._model
         self._config: LLMConfig = LLMConfig(
             model_name=model,
-            proxy_base_url=settings.LITELLM_PROXY_URL,
+            proxy_base_url=settings.LITELLM_PROXY_URL if settings.LITELLM_MODEL else "",
             proxy_api_key=proxy_api_key,
             temperature=settings.LLM_TEMPERATURE,
             max_tokens=settings.LLM_MAX_TOKENS,

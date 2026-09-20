@@ -47,6 +47,7 @@ QUERY_PREFIX = getattr(settings, "EMBEDDING_QUERY_PREFIX", "Represent this sente
 
 # Lazy-loaded sentence-transformers singleton (downloaded on first use)
 _embedding_model: SentenceTransformer | None = None
+_embed_lock = asyncio.Lock()
 
 
 def _get_embedding_model() -> SentenceTransformer:
@@ -160,9 +161,10 @@ class QdrantManager:
         """
         input_text = (QUERY_PREFIX + text) if is_query else text
         model = _get_embedding_model()
-        vector: list[float] = await asyncio.to_thread(
-            model.encode, input_text, convert_to_numpy=False,
-        )
+        async with _embed_lock:
+            vector: list[float] = await asyncio.to_thread(
+                model.encode, input_text, convert_to_numpy=False,
+            )
         return vector
 
     # ── write ────────────────────────────────────────────

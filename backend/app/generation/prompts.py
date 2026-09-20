@@ -66,7 +66,11 @@ def build_user_prompt(
     slot_config: ModuleSlot = None,  # type: ignore[assignment]
     module_type: ModuleType = ModuleType.READING_SHORT,
     questions_already_generated: int = 0,
+<<<<<<< HEAD
     covered_lines: Optional[list[str]] = None,
+=======
+    covered_lines: list[str] | None = None,
+>>>>>>> 197a140 (sprint(1): grammar gate, line coverage, bulletproof coercers, Qdrant tuning)
 ) -> str:
     """Assemble the per-request user prompt from XML sections.
 
@@ -171,6 +175,23 @@ def build_user_prompt(
 
     if covered_lines:
         task_block += f"Already covered lines — do NOT generate a question supported by any of these: {covered_lines}\n"
+
+    # ponytail: self-check gate — LLM must justify why good_not_best is
+    # definitively worse than best_answer before committing. Two choices
+    # both arguable as correct = generation failure.
+    task_block += (
+        "\nFor the good_not_best choice: you MUST explain in the reasoning "
+        "field exactly why it is definitively worse than the best_answer — "
+        "cite the specific passage evidence that rules it out. If you cannot "
+        "articulate a clear, passage-supported reason why it is inferior, "
+        "choose a different distractor. Two choices that can both be "
+        "reasonably argued as correct is a generation failure.\n"
+    )
+
+    if covered_lines:
+        lines_block = "\nAlready covered lines — do NOT generate a question "
+        lines_block += "supported by any of these: " + ", ".join(covered_lines) + "\n"
+        task_block += lines_block
 
     if module_type == ModuleType.WRITING:
         task_block += f"\n{WRITING_ADDON}\n"

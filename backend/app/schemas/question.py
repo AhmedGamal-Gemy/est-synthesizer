@@ -10,6 +10,106 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .enums import Difficulty, DistractorRole, SkillType
 
+# Fallback mapping for LLM-invented skill types that don't match our enum
+_SKILL_FALLBACK_MAP: dict[str, SkillType] = {
+    "inference": SkillType.INFORMATION_AND_IDEAS,
+    "making_inferences": SkillType.INFORMATION_AND_IDEAS,
+    "inferencing": SkillType.INFORMATION_AND_IDEAS,
+    "main_idea": SkillType.INFORMATION_AND_IDEAS,
+    "author_purpose": SkillType.RHETORIC,
+    "author_s_purpose": SkillType.RHETORIC,
+    "text_structure": SkillType.RHETORIC,
+    "vocabulary": SkillType.VOCABULARY_IN_CONTEXT,
+    "reading_comprehension": SkillType.INFORMATION_AND_IDEAS,
+    "comprehension": SkillType.INFORMATION_AND_IDEAS,
+    "reading": SkillType.INFORMATION_AND_IDEAS,
+    "close_reading": SkillType.INFORMATION_AND_IDEAS,
+    "evidence": SkillType.COMMAND_OF_EVIDENCE,
+    "synthesis": SkillType.SYNTHESIS,
+    "rhetorical_analysis": SkillType.RHETORIC,
+    "word_choice": SkillType.VOCABULARY_IN_CONTEXT,
+    "explicit_information": SkillType.COMMAND_OF_EVIDENCE,
+    "detail_extraction": SkillType.COMMAND_OF_EVIDENCE,
+    # Writing module sub-skills (conventions of standard English)
+    "punctuation": SkillType.CONVENTIONS_OF_STANDARD_ENGLISH,
+    "tenses": SkillType.CONVENTIONS_OF_STANDARD_ENGLISH,
+    "usage": SkillType.CONVENTIONS_OF_STANDARD_ENGLISH,
+    "sentence_formation": SkillType.SENTENCE_FORMATION,
+    "placement": SkillType.SENTENCE_FORMATION,
+    "add_delete": SkillType.SENTENCE_FORMATION,
+    "transitions": SkillType.SENTENCE_FORMATION,
+    "organization": SkillType.SENTENCE_FORMATION,
+    "grammar": SkillType.CONVENTIONS_OF_STANDARD_ENGLISH,
+    "graph_interpreting_data": SkillType.GRAPH,
+}
+
+
+def _repair_distractor_roles(choices: List[AnswerChoice]) -> List[AnswerChoice]:
+    """Ensure exactly one BEST_ANSWER, one GOOD_NOT_BEST, two COMPLETELY_WRONG.
+
+    Auto-repairs common LLM failures: missing/extra GOOD_NOT_BEST or
+    doubled BEST_ANSWER, rather than rejecting the whole question.
+    """
+    roles = [c.distractor_role for c in choices]
+    best = roles.count(DistractorRole.BEST_ANSWER)
+    good = roles.count(DistractorRole.GOOD_NOT_BEST)
+    wrong = roles.count(DistractorRole.COMPLETELY_WRONG)
+
+    # Fix doubled BEST_ANSWER (2 best, 0 good, 2 wrong) → demote one best to good
+    if best == 2 and good == 0 and wrong == 2:
+        patched = []
+        for c in choices:
+            if c.distractor_role == DistractorRole.BEST_ANSWER and not any(
+                p.distractor_role == DistractorRole.GOOD_NOT_BEST for p in patched
+            ):
+                patched.append(c.model_copy(update={"distractor_role": DistractorRole.GOOD_NOT_BEST}))
+            else:
+                patched.append(c)
+        return patched
+
+    # Fix missing BEST_ANSWER (0 best) → promote one wrong to best, then fix good
+    if best == 0 and wrong >= 2:
+        patched = []
+        for c in choices:
+            done_best = any(p.distractor_role == DistractorRole.BEST_ANSWER for p in patched)
+            done_good = any(p.distractor_role == DistractorRole.GOOD_NOT_BEST for p in patched)
+            if not done_best and c.distractor_role == DistractorRole.COMPLETELY_WRONG:
+                patched.append(c.model_copy(update={"distractor_role": DistractorRole.BEST_ANSWER}))
+            elif not done_good and c.distractor_role == DistractorRole.COMPLETELY_WRONG:
+                patched.append(c.model_copy(update={"distractor_role": DistractorRole.GOOD_NOT_BEST}))
+            else:
+                patched.append(c)
+        return patched
+
+    if best != 1:
+        return choices
+
+    # Fix missing GOOD_NOT_BEST (1 best, 0 good, 3 wrong) → promote one wrong
+    if good == 0 and wrong >= 1:
+        patched = []
+        for c in choices:
+            if c.distractor_role == DistractorRole.COMPLETELY_WRONG and not any(
+                p.distractor_role == DistractorRole.GOOD_NOT_BEST for p in patched
+            ):
+                patched.append(c.model_copy(update={"distractor_role": DistractorRole.GOOD_NOT_BEST}))
+            else:
+                patched.append(c)
+        return patched
+
+    # Fix excess GOOD_NOT_BEST (1 best, 2+ good) → demote extras to wrong
+    if good > 1:
+        promoted = 0
+        patched = []
+        for c in choices:
+            if c.distractor_role == DistractorRole.GOOD_NOT_BEST and promoted < good - 1:
+                patched.append(c.model_copy(update={"distractor_role": DistractorRole.COMPLETELY_WRONG}))
+                promoted += 1
+            else:
+                patched.append(c)
+        return patched
+
+    return choices
+
 
 class AnswerChoice(BaseModel):
     """A single answer choice within a multiple-choice question."""
@@ -77,20 +177,7 @@ class GeneratedQuestion(BaseModel):
     @classmethod
     def validate_distractor_roles(cls, choices: List[AnswerChoice]) -> List[AnswerChoice]:
         """Ensure exactly one BEST_ANSWER, one GOOD_NOT_BEST, two COMPLETELY_WRONG."""
-        roles = [c.distractor_role for c in choices]
-        if roles.count(DistractorRole.BEST_ANSWER) != 1:
-            raise ValueError(
-                f"Expected exactly 1 BEST_ANSWER, got {roles.count(DistractorRole.BEST_ANSWER)}"
-            )
-        if roles.count(DistractorRole.GOOD_NOT_BEST) != 1:
-            raise ValueError(
-                f"Expected exactly 1 GOOD_NOT_BEST, got {roles.count(DistractorRole.GOOD_NOT_BEST)}"
-            )
-        if roles.count(DistractorRole.COMPLETELY_WRONG) != 2:
-            raise ValueError(
-                f"Expected exactly 2 COMPLETELY_WRONG, got {roles.count(DistractorRole.COMPLETELY_WRONG)}"
-            )
-        return choices
+        return _repair_distractor_roles(choices)
 
     def __repr__(self) -> str:
         return (
@@ -130,6 +217,8 @@ class LLMQuestionOutput(BaseModel):
 
         Handles both exact enum values (``information_and_ideas``) and
         human-readable forms from the prompt (``Information and Ideas``).
+        Also maps common LLM-invented skill names via ``_SKILL_FALLBACK_MAP``.
+        Falls back to INFORMATION_AND_IDEAS when nothing matches.
         """
         if isinstance(v, str):
             try:
@@ -142,37 +231,28 @@ class LLMQuestionOutput(BaseModel):
                 return SkillType(normalized)
             except ValueError:
                 pass
-        return v
+            # Try fallback map for invented skill names
+            if normalized in _SKILL_FALLBACK_MAP:
+                return _SKILL_FALLBACK_MAP[normalized]
+        return SkillType.INFORMATION_AND_IDEAS
 
     @field_validator("difficulty", mode="before")
     @classmethod
     def coerce_difficulty(cls, v: object) -> object:
-        """Coerce LLM string to Difficulty enum before strict validation."""
+        """Coerce LLM string to Difficulty enum before strict validation.
+        Falls back to MEDIUM when nothing matches.
+        """
         if isinstance(v, str):
             try:
                 return Difficulty(v)
             except ValueError:
                 pass
-        return v
+        return Difficulty.MEDIUM
 
     @field_validator("choices")
     @classmethod
     def validate_distractor_roles(cls, choices: List[AnswerChoice]) -> List[AnswerChoice]:
-        """Ensure exactly one BEST_ANSWER, one GOOD_NOT_BEST, two COMPLETELY_WRONG."""
-        roles = [c.distractor_role for c in choices]
-        if roles.count(DistractorRole.BEST_ANSWER) != 1:
-            raise ValueError(
-                f"Expected exactly 1 BEST_ANSWER, got {roles.count(DistractorRole.BEST_ANSWER)}"
-            )
-        if roles.count(DistractorRole.GOOD_NOT_BEST) != 1:
-            raise ValueError(
-                f"Expected exactly 1 GOOD_NOT_BEST, got {roles.count(DistractorRole.GOOD_NOT_BEST)}"
-            )
-        if roles.count(DistractorRole.COMPLETELY_WRONG) != 2:
-            raise ValueError(
-                f"Expected exactly 2 COMPLETELY_WRONG, got {roles.count(DistractorRole.COMPLETELY_WRONG)}"
-            )
-        return choices
+        return _repair_distractor_roles(choices)
 
     def __repr__(self) -> str:
         return (
@@ -191,7 +271,7 @@ class LLMBatchOutput(BaseModel):
     model_config = ConfigDict(strict=True, use_enum_values=True)
 
     reasoning: str = Field(
-        ...,
+        default="",
         description="Chain-of-thought reasoning about the passage and question design",
     )
     questions: List[LLMQuestionOutput] = Field(
